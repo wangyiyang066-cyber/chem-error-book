@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>在线答题</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>在线答题</h1>
+        
+        <div id="quiz-container">
+            <div class="detail-card">
+                <h3>问题 <span id="question-number"></span></h3>
+                <p id="question-text">正在加载题目...</p>
+            </div>
+            
+            <div class="answer-area">
+                <textarea id="user-answer-input" placeholder="请在此输入你的答案..."></textarea>
+                <button id="submit-answer-btn">提交答案</button>
+            </div>
+
+            <div id="feedback-wrong" class="detail-card answer-wrong" style="display: none;">
+    <h3>回答错误</h3>
+    <p>正确答案是：<strong id="correct-answer-text"></strong></p>
+    <p>关联知识点：<em id="related-keypoint"></em></p>
+
+    <button id="get-ai-analysis-btn">请求 AI 智能解析</button>
+    <div id="ai-analysis-container" class="detail-card" style="display: none; margin-top: 15px; border-left-color: #f39c12;">
+        <h4><i class="fas fa-robot"></i> AI 智能解析</h4>
+        <p id="ai-analysis-text">正在思考中，请稍候...</p>
+    </div>
+    </div>
+                <div id="feedback-correct" class="detail-card answer-correct" style="display: none;">
+                    <h3>回答正确！</h3>
+                    <p>太棒了，让我们进入下一题！</p>
+                </div>
+                <button id="next-question-btn">下一题</button>
+            </div>
+        </div>
+
+        <div id="quiz-complete-container" style="display: none;">
+            <h2>🎉 恭喜你，已完成所有题目！</h2>
+            <a href="welcome.html" class="btn-back">返回主页</a>
+        </div>
+    </div>
+
+    <script src="js/data.js"></script>
+    <script src="js/quiz.js"></script>
+</body>
+</html>
