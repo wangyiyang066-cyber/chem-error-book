@@ -1,10 +1,14 @@
-// js/quiz.js (最终 AI 集成版)
+// js/quiz.js (保证100%正确的版本)
 
 document.addEventListener('DOMContentLoaded', function() {
+    if (typeof errorData === 'undefined' || errorData.length === 0) {
+        console.error("错误：题目数据 (errorData) 未加载或为空。");
+        document.getElementById('question-text').textContent = '错误：无法加载题目数据，请检查 data.js 文件。';
+        return;
+    }
     const questions = errorData;
     let currentQuestionIndex = 0;
 
-    // 获取所有页面元素 (包括我们新增的)
     const questionNumberEl = document.getElementById('question-number');
     const questionTextEl = document.getElementById('question-text');
     const userAnswerInputEl = document.getElementById('user-answer-input');
@@ -20,7 +24,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const aiAnalysisContainer = document.getElementById('ai-analysis-container');
     const aiAnalysisTextEl = document.getElementById('ai-analysis-text');
 
-    // 加载问题的函数
     function loadQuestion() {
         if (currentQuestionIndex < questions.length) {
             const currentQuestion = questions[currentQuestionIndex];
@@ -36,7 +39,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // 检查答案的函数
     function checkAnswer() {
         const userAnswer = userAnswerInputEl.value.trim();
         const correctAnswer = questions[currentQuestionIndex].correctAnswer.trim();
@@ -57,7 +59,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // 请求 AI 解析的函数
     async function getAIAnalysis() {
         aiAnalysisContainer.style.display = 'block';
         aiAnalysisTextEl.innerHTML = '正在连接AI大脑，请稍候... <i class="fas fa-spinner fa-spin"></i>';
@@ -88,14 +89,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // 绑定按钮事件
     submitBtn.addEventListener('click', checkAnswer);
     nextQuestionBtn.addEventListener('click', () => {
         currentQuestionIndex++;
         loadQuestion();
-    });
+});
     getAIAnalysisBtn.addEventListener('click', getAIAnalysis);
 
-    // 初始化，加载第一题
     loadQuestion();
 });
