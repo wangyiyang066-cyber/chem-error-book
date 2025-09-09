@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>错题详情</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1 id="question-title">题目详情加载中...</h1>
+    
+    <div class="detail-card">
+      <h3>关联知识点</h3>
+      <p id="key-point"></p>
+    </div>
+
+    <div class="detail-card">
+      <h3>完整题目</h3>
+      <p id="full-question"></p>
+    </div>
+
+    <div class="detail-card answer-wrong">
+      <h3>我的答案</h3>
+      <p id="user-answer"></p>
+    </div>
+
+    <div class="detail-card answer-correct">
+      <h3>正确答案</h3>
+      <p id="correct-answer"></p>
+    </div>
+
+    <div class="detail-card">
+      <h3>题目解析</h3>
+      <p id="analysis"></p>
+    </div>
+    
+    <a href="index.html" class="btn-back">返回列表</a>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/detail.js"></script>
+</body>
+</html>
