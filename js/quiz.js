@@ -1,14 +1,12 @@
-// js/quiz.js (最终正确版)
+// js/quiz.js (V5.0 数据库记录版)
 
 document.addEventListener('DOMContentLoaded', function() {
-    if (typeof errorData === 'undefined' || errorData.length === 0) {
-        console.error("错误：题目数据 (errorData) 未加载或为空。");
-        document.getElementById('question-text').textContent = '错误：无法加载题目数据，请检查 data.js 文件。';
-        return;
-    }
-    const questions = errorData;
-    let currentQuestionIndex = 0;
-
+    // ... (顶部的变量定义和元素获取部分保持不变) ...
+    let allQuestions = errorData;
+    let userProfile = JSON.parse(localStorage.getItem('chemUserProfile')) || {
+        abilityScore: 0,
+        answeredIds: []
+    };
     const questionNumberEl = document.getElementById('question-number');
     const questionTextEl = document.getElementById('question-text');
     const userAnswerInputEl = document.getElementById('user-answer-input');
@@ -23,81 +21,59 @@ document.addEventListener('DOMContentLoaded', function() {
     const getAIAnalysisBtn = document.getElementById('get-ai-analysis-btn');
     const aiAnalysisContainer = document.getElementById('ai-analysis-container');
     const aiAnalysisTextEl = document.getElementById('ai-analysis-text');
+    let currentQuestion;
 
-    function loadQuestion() {
-        if (currentQuestionIndex < questions.length) {
-            const currentQuestion = questions[currentQuestionIndex];
-            questionNumberEl.textContent = `( ${currentQuestionIndex + 1} / ${questions.length} )`;
-            questionTextEl.innerHTML = currentQuestion.fullQuestion;
-            userAnswerInputEl.value = '';
-            userAnswerInputEl.disabled = false;
-            submitBtn.style.display = 'block';
-            feedbackContainer.style.display = 'none';
-        } else {
-            document.getElementById('quiz-container').style.display = 'none';
-            quizCompleteContainer.style.display = 'block';
+    // --- 新增函数：呼叫“数据记录员” ---
+    async function saveAnswerRecord(questionId, isCorrect) {
+        try {
+            await fetch('/.netlify/functions/save-answer', {
+                method: 'POST',
+                body: JSON.stringify({
+                    questionId: questionId,
+                    isCorrect: isCorrect,
+                }),
+            });
+            console.log(`记录已保存: 题目 ${questionId}, 是否正确: ${isCorrect}`);
+        } catch (error) {
+            console.error('保存答题记录失败:', error);
         }
     }
 
+    // --- 修改 checkAnswer 函数，让它在判断后调用保存函数 ---
     function checkAnswer() {
         const userAnswer = userAnswerInputEl.value.trim();
-        const correctAnswer = questions[currentQuestionIndex].correctAnswer.trim();
+        const correctAnswer = currentQuestion.correctAnswer.trim();
+
         userAnswerInputEl.disabled = true;
         submitBtn.style.display = 'none';
         feedbackContainer.style.display = 'block';
 
-        if (userAnswer.toLowerCase() === correctAnswer.toLowerCase()) {
+        const isCorrect = userAnswer.toLowerCase() === correctAnswer.toLowerCase();
+        
+        // **核心改动**：无论对错，都调用保存记录的函数
+        saveAnswerRecord(currentQuestion.id, isCorrect);
+        // (IRT相关的本地计分逻辑我们暂时保留)
+        saveProgress(isCorrect); 
+
+        if (isCorrect) {
             feedbackCorrectEl.style.display = 'block';
             feedbackWrongEl.style.display = 'none';
         } else {
             feedbackWrongEl.style.display = 'block';
             feedbackCorrectEl.style.display = 'none';
             correctAnswerTextEl.innerHTML = correctAnswer;
-            relatedKeypointEl.innerHTML = questions[currentQuestionIndex].detailedKeyPoint;
+            relatedKeypointEl.innerHTML = currentQuestion.detailedKeyPoint;
             aiAnalysisContainer.style.display = 'none';
             getAIAnalysisBtn.disabled = false;
         }
     }
     
-    async function getAIAnalysis() {
-        aiAnalysisContainer.style.display = 'block';
-        aiAnalysisTextEl.innerHTML = '正在连接AI大脑，请稍候... <i class="fas fa-spinner fa-spin"></i>';
-        getAIAnalysisBtn.disabled = true;
+    // ... (其他所有函数: loadQuestion, calculateLevel, saveProgress, pickNextQuestion, getAIAnalysis 都不变) ...
+    // ... (为了代码简洁，这里省略，请使用你已有的版本)
 
-        const currentQuestion = questions[currentQuestionIndex];
-
-        try {
-            const response = await fetch('/.netlify/functions/get-ai-analysis', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    question: currentQuestion.fullQuestion,
-                    correctAnswer: currentQuestion.correctAnswer,
-                    keyPoint: currentQuestion.detailedKeyPoint,
-                }),
-            });
-
-            if (!response.ok) { throw new Error('AI 服务响应失败'); }
-
-            const data = await response.json();
-            const formattedAnalysis = data.analysis.replace(/\n/g, '<br>');
-            aiAnalysisTextEl.innerHTML = formattedAnalysis;
-
-        } catch (error) {
-            aiAnalysisTextEl.textContent = '抱歉，AI解析服务暂时出现问题，请稍后再试。';
-        } finally {
-            getAIAnalysisBtn.disabled = false;
-        }
-    }
-
-    submitBtn.addEventListener('click', checkAnswer);
-    nextQuestionBtn.addEventListener('click', () => {
-        currentQuestionIndex++;
-        loadQuestion();
-    });
-    getAIAnalysisBtn.addEventListener('click', getAIAnalysis);
-
-    loadQuestion();
+    // ... (事件监听部分不变)
 });
+
+// 注意：为简洁起见，我只展示了有改动的函数和新增的函数。
+// 请在你现有的 quiz.js 文件中，新增 saveAnswerRecord 函数，并修改 checkAnswer 函数。
+// 或者，如果你不确定，我可以提供一份完整的 quiz.js 新代码。
