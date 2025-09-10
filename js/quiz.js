@@ -1,4 +1,4 @@
-// js/quiz.js (保证100%正确的版本)
+// js/quiz.js (最终正确版)
 
 document.addEventListener('DOMContentLoaded', function() {
     if (typeof errorData === 'undefined' || errorData.length === 0) {
@@ -69,6 +69,9 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const response = await fetch('/.netlify/functions/get-ai-analysis', {
                 method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
                 body: JSON.stringify({
                     question: currentQuestion.fullQuestion,
                     correctAnswer: currentQuestion.correctAnswer,
@@ -93,7 +96,7 @@ document.addEventListener('DOMContentLoaded', function() {
     nextQuestionBtn.addEventListener('click', () => {
         currentQuestionIndex++;
         loadQuestion();
-});
+    });
     getAIAnalysisBtn.addEventListener('click', getAIAnalysis);
 
     loadQuestion();

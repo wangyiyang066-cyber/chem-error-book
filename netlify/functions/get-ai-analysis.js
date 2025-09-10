@@ -1,4 +1,4 @@
-// 文件路径: netlify/functions/get-ai-analysis.js
+// 文件路径: netlify/functions/get-ai-analysis.js (最终正确版)
 
 // 从环境变量中安全地获取你的 DeepSeek API 密钥
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
