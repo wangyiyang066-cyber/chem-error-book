@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录与注册</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container" style="max-width: 500px;">
+        <div id="signup-form-container">
+            <h1>注册新用户</h1>
+            <form id="signup-form">
+                <div class="form-group">
+                    <label for="signup-email">邮箱地址</label>
+                    <input type="email" id="signup-email" required>
+                </div>
+                <div class="form-group">
+                    <label for="signup-password">设置密码</label>
+                    <input type="password" id="signup-password" minlength="6" required>
+                </div>
+                <button type="submit" class="btn-back">注册</button>
+            </form>
+            <p>已有账户？ <a href="#" id="show-login-link">点此登录</a></p>
+        </div>
+
+        <div id="login-form-container" style="display: none;">
+            <h1>用户登录</h1>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-email">邮箱地址</label>
+                    <input type="email" id="login-email" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">输入密码</label>
+                    <input type="password" id="login-password" required>
+                </div>
+                <button type="submit" class="btn-back">登录</button>
+            </form>
+            <p>没有账户？ <a href="#" id="show-signup-link">点此注册</a></p>
+        </div>
+
+        <div id="message-display" class="detail-card" style="display: none; margin-top: 20px;"></div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/auth.js"></script>
+</body>
+</html>
