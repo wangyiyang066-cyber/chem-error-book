@@ -3,47 +3,128 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>基于元认知的初三化学错题管理系统</title>
-
+    <title>登录与注册 - 化学错题管理系统</title>
+    
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-
+    
     <link rel="stylesheet" href="css/style.css">
+
+    <style>
+        /* 让背景充满整个屏幕 */
+        html, body {
+            height: 100%;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-image: linear-gradient(135deg, #f4f7f9 0%, #d7e4ec 100%);
+        }
+        /* 重置 container 样式，让它更适合做登录卡片 */
+        .auth-container {
+            max-width: 420px;
+            width: 100%;
+            margin: 20px;
+            padding: 40px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+            animation: fadeIn 0.8s ease-out;
+        }
+        /* 动画效果 */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .project-title {
+            font-size: 1.5em;
+            font-weight: 500;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        /* 表单组样式 */
+        .form-group {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #34495e;
+            font-weight: 500;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 1px solid #bdc3c7;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+        }
+        /* 切换链接的样式 */
+        .toggle-link {
+            margin-top: 20px;
+        }
+        .toggle-link a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .toggle-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
 <body>
+    <div class="auth-container">
+        <h1 class="project-title">基于元认知的初三化学错题管理系统</h1>
 
-    <div class="container welcome-container">
-        
-        <h1 class="welcome-title">基于元认知的初三化学错题管理系统</h1>
-        <p class="welcome-subtitle">一个集回顾、学习和练习于一体的智能平台</p>
-    
-        <div class="navigation-grid">
-            
-            <a href="error-list.html" class="nav-card">
-                <div class="nav-card-icon"><i class="fas fa-list-check"></i></div>
-                <h2>错题概览</h2>
-                <p>回顾和分析你所有的错题记录。</p>
-            </a>
-
-            <a href="knowledge-base.html" class="nav-card">
-                <div class="nav-card-icon"><i class="fas fa-book-open"></i></div>
-                <h2>知识库</h2>
-                <p>查阅核心知识点PDF，巩固基础。</p>
-            </a>
-
-            <a href="quiz.html" class="nav-card">
-                <div class="nav-card-icon"><i class="fas fa-pencil-alt"></i></div>
-                <h2>开始答题</h2>
-                <p>通过实战练习来检验你的学习成果。</p>
-            </a>
-
+        <div id="signup-form-container">
+            <h2>注册新用户</h2>
+            <form id="signup-form">
+                <div class="form-group">
+                    <label for="signup-email">邮箱地址</label>
+                    <input type="email" id="signup-email" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="signup-password">设置密码 (至少6位)</label>
+                    <input type="password" id="signup-password" minlength="6" required autocomplete="new-password">
+                </div>
+                <button type="submit" class="btn-back">立即注册</button>
+            </form>
+            <p class="toggle-link">已有账户？ <a href="#" id="show-login-link">点此登录</a></p>
         </div>
 
-        <div style="text-align: center; margin-top: 40px;">
-            <a href="auth.html" class="btn-back">登录 / 注册</a>
+        <div id="login-form-container" style="display: none;">
+            <h2>用户登录</h2>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-email">邮箱地址</label>
+                    <input type="email" id="login-email" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="login-password">输入密码</label>
+                    <input type="password" id="login-password" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn-back">立即登录</button>
+            </form>
+            <p class="toggle-link">没有账户？ <a href="#" id="show-signup-link">点此注册</a></p>
         </div>
-    
+
+        <div id="message-display" class="detail-card" style="display: none; margin-top: 20px;"></div>
     </div>
-
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/main.js"></script>
 </body>
 </html>
