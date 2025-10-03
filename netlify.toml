@@ -1,10 +1,10 @@
-# 这是 netlify.toml 文件的最终正确版本
+# 这是 netlify.toml 文件的最终精确版本
 
 # 这个 [build] 部分告诉 Netlify 你的云函数放在哪里
 [build]
   functions = "netlify/functions"
 
-# 这个 [functions."*"] 部分为所有的云函数设置通用规则
-# 我们在这里把超时时间设置为 60 秒
-[functions."*"]
-  timeout = 60
+# 这部分专门为我们那个需要长时间思考的 get-ai-analysis 函数
+# 将超时时间设置为 90 秒
+[functions."get-ai-analysis"]
+  timeout = 90
