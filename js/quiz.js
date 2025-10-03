@@ -6,8 +6,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         answeredIds: [0]
     };
 
-    const SUPABASE_URL = '你自己的 Supabase Project URL'; // <<< 再次填入你的信息
-    const SUPABASE_ANON_KEY = '你自己的 Supabase anon public 密钥'; // <<< 再次填入你的信息
+    const SUPABASE_URL = 'https://ghuyiwhqdellucjxqiwj.supabase.co'; // <<< 再次填入你的信息
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdodXlpd2hxZGVsbHVjanhxaXdqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzQzNDA5NCwiZXhwIjoyMDczMDEwMDk0fQ.op6RPiEDsjSnwy5yMRq3Got0dfLzPxGKWc0PFa8D5Go'; // <<< 再次填入你的信息
     const { createClient } = supabase;
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
