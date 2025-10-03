@@ -14,7 +14,7 @@ exports.handler = async function (event, context) {
       model: "deepseek-chat",
       messages: [
         { "role": "system", "content": "你是一名资深的初三化学老师，擅长用清晰、易懂的方式解释复杂的化学问题。你的任务是为学生答错的题目生成一段高质量的解析。" },
-        { "role": "user", "content": `请根据以下信息，为我生成一段题目解析。解析需要包含：知识点回顾、解题思路、易错点分析。\n---\n题目信息：\n- 核心知识点: ${keyPoint}\n- 题目内容: ${question}\n- 正确答案: ${correctAnswer}\n---\n请开始你的解析：` }
+        { "role": "user", "content": `请根据以下信息，为我生成一段题目解析。解析需要包含：知识点回顾、解题思路、易错点分析，请你注意，关注学生的错误选项，思考为什么学生会在这里出错，并据此给出完整解析。\n---\n题目信息：\n- 核心知识点: ${keyPoint}\n- 题目内容: ${question}\n- 正确答案: ${correctAnswer}\n---\n请开始你的解析：` }
       ]
     };
 
