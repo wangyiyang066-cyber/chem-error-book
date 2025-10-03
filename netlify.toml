@@ -1,6 +1,9 @@
+# 这是 netlify.toml 文件的最终正确版本
+
+# 这个 [build] 部分告诉 Netlify 你的云函数放在哪里
 [build]
   functions = "netlify/functions"
-[build]
-  functions = "netlify/functions"
+
+# 这个 [functions] 部分告诉 Netlify 你的云函数最长可以运行多久
 [functions]
   timeout = 60
