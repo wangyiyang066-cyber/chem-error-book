@@ -4,6 +4,7 @@
 [build]
   functions = "netlify/functions"
 
-# 这个 [functions] 部分告诉 Netlify 你的云函数最长可以运行多久
-[functions]
+# 这个 [functions."*"] 部分为所有的云函数设置通用规则
+# 我们在这里把超时时间设置为 60 秒
+[functions."*"]
   timeout = 60
