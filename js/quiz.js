@@ -1,9 +1,9 @@
-// js/quiz.js (V5.0 最终云端动态版)
+// js/quiz.js (最终云端动态版 + 图片显示功能)
 
 document.addEventListener('DOMContentLoaded', function() {
     // 用户档案现在只在本地记录，用来发送给后端
     let userProfile = JSON.parse(localStorage.getItem('chemUserProfile')) || {
-        abilityScore: 0,
+        abilityScore: 0, // 初始能力分为 0
         answeredIds: [0] // 初始化一个虚拟ID，防止SQL查询 in () 语法错误
     };
     
@@ -46,11 +46,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     async function loadQuestion() {
-        // 显示正在加载
         questionTextEl.innerHTML = '正在从云端图书馆获取新题目...';
-        
         try {
-            // 呼叫我们的“图书管理员”
             const response = await fetch('/.netlify/functions/get-question', {
                 method: 'POST',
                 body: JSON.stringify({
@@ -59,14 +56,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 }),
             });
             if (!response.ok) throw new Error('获取题目失败');
-
             currentQuestion = await response.json();
 
             if (currentQuestion) {
-                // 更新页面显示
                 questionNumberEl.innerHTML = `<small>当前能力分: ${userProfile.abilityScore}</small>`;
                 questionTextEl.innerHTML = currentQuestion.full_question;
-                
+
+                // --- 这是新增的核心代码：检查并显示图片 ---
+                if (currentQuestion.image_url) {
+                    const imageHTML = `<br><img src="${currentQuestion.image_url}" alt="题目图片" style="max-width: 100%; border-radius: 8px; margin-top: 15px;">`;
+                    questionTextEl.innerHTML += imageHTML;
+                }
+                // --- 新增代码结束 ---
+
                 userAnswerInputEl.value = '';
                 userAnswerInputEl.disabled = false;
                 submitBtn.style.display = 'block';
@@ -87,10 +89,8 @@ document.addEventListener('DOMContentLoaded', function() {
         userAnswerInputEl.disabled = true;
         submitBtn.style.display = 'none';
         feedbackContainer.style.display = 'block';
-
         const isCorrect = userAnswer.toLowerCase() === correctAnswer.toLowerCase();
         saveProgress(isCorrect);
-
         if (isCorrect) {
             feedbackCorrectEl.style.display = 'block';
             feedbackWrongEl.style.display = 'none';
@@ -98,7 +98,6 @@ document.addEventListener('DOMContentLoaded', function() {
             feedbackWrongEl.style.display = 'block';
             feedbackCorrectEl.style.display = 'none';
             correctAnswerTextEl.innerHTML = correctAnswer;
-            // 注意：因为我们关联查询了知识点，所以这里的结构变了
             relatedKeypointEl.innerHTML = currentQuestion.knowledge_points.name; 
             aiAnalysisContainer.style.display = 'none';
             getAIAnalysisBtn.disabled = false;
@@ -106,7 +105,28 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     async function getAIAnalysis() {
-        // ... (此函数保持不变)
+        aiAnalysisContainer.style.display = 'block';
+        aiAnalysisTextEl.innerHTML = '正在连接AI大脑，请稍候... <i class="fas fa-spinner fa-spin"></i>';
+        getAIAnalysisBtn.disabled = true;
+        try {
+            const response = await fetch('/.netlify/functions/get-ai-analysis', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    question: currentQuestion.full_question,
+                    correctAnswer: currentQuestion.correct_answer,
+                    keyPoint: currentQuestion.knowledge_points.name,
+                }),
+            });
+            if (!response.ok) { throw new Error('AI 服务响应失败'); }
+            const data = await response.json();
+            const formattedAnalysis = data.analysis.replace(/\n/g, '<br>');
+            aiAnalysisTextEl.innerHTML = formattedAnalysis;
+        } catch (error) {
+            aiAnalysisTextEl.textContent = '抱歉，AI解析服务暂时出现问题，请稍后再试。';
+        } finally {
+            getAIAnalysisBtn.disabled = false;
+        }
     }
 
     submitBtn.addEventListener('click', checkAnswer);
