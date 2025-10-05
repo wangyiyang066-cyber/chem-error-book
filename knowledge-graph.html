@@ -11,40 +11,32 @@
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow/dist/drawflow.min.css">
     
     <style>
-        /* 这些是旧的 drawflow 样式，保留它们 */
-        #drawflow { width: 100%; height: 70vh; border: 2px solid #ddd; border-radius: 8px; background: #f9f9f9; }
+        /* Drawflow 基础样式 */
+        #drawflow { width: 100%; height: 75vh; border: 2px solid #ddd; border-radius: 8px; background: #f9f9f9; }
         .drawflow-node { border-radius: 8px !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important; }
         .drawflow-node .title-box { background: #3498db !important; color: white !important; border-radius: 8px 8px 0 0 !important; }
         .drawflow-node .box { padding: 15px !important; }
         .drawflow-node textarea { width: 100%; border: 1px solid #ddd; border-radius: 4px; padding: 5px; box-sizing: border-box; }
 
-        /* ▼▼▼ 这是新的布局和工具箱样式 ▼▼▼ */
+        /* 新的布局和工具箱样式 */
         .editor-workspace { display: flex; gap: 20px; }
         .left-panel { width: 220px; flex-shrink: 0; }
-        #drawflow { flex-grow: 1; } /* 让画板占据剩余所有空间 */
+        #drawflow { flex-grow: 1; }
 
         .palette { display: flex; flex-wrap: wrap; gap: 15px; padding: 15px; background-color: #eee; border-radius: 8px; }
         .palette-item { width: 100%; box-sizing: border-box; padding: 10px 15px; background-color: white; border: 1px solid #ccc; border-radius: 8px; cursor: grab; text-align: center; }
 
         .toolbox { margin-top: 20px; padding: 15px; background-color: #f0f4f8; border-radius: 8px; }
-        .toolbox h3 { margin-top: 0; font-size: 16px; color: #2c3e50; border-bottom: 1px solid #dde; padding-bottom: 8px; }
+        .toolbox h3 { margin-top: 0; font-size: 16px; color: #2c3e50; border-bottom: 1px solid #dde; padding-bottom: 8px; margin-bottom: 10px; }
         .toolbox .symbols { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
         .toolbox .symbol-btn {
-            cursor: pointer;
-            padding: 5px 10px;
-            background-color: white;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            font-family: 'Menlo', 'Courier New', Courier, monospace;
-            font-weight: bold;
-            font-size: 14px;
-            min-width: 32px;
-            text-align: center;
+            cursor: pointer; padding: 5px 10px; background-color: white;
+            border: 1px solid #ccc; border-radius: 5px; font-family: 'Menlo', 'Courier New', Courier, monospace;
+            font-weight: bold; font-size: 14px; min-width: 32px; text-align: center;
             transition: background-color 0.2s, transform 0.1s;
         }
         .toolbox .symbol-btn:hover { background-color: #e9eef2; }
         .toolbox .symbol-btn:active { transform: scale(0.95); }
-/* ▲▲▲ 新样式结束 ▲▲▲ */
     </style>
 </head>
 <body>
@@ -72,29 +64,33 @@
                     </div>
                     <h3>常见元素</h3>
                     <div class="symbols">
-                        <span class="symbol-btn" data-element="H">H</span>
-                        <span class="symbol-btn" data-element="O">O</span>
-                        <span class="symbol-btn" data-element="C">C</span>
-                        <span class="symbol-btn" data-element="N">N</span>
-                        <span class="symbol-btn" data-element="Na">Na</span>
-                        <span class="symbol-btn" data-element="Cl">Cl</span>
-                        <span class="symbol-btn" data-element="K">K</span>
-                        <span class="symbol-btn" data-element="Ca">Ca</span>
-                        <span class="symbol-btn" data-element="Fe">Fe</span>
-                        <span class="symbol-btn" data-element="Cu">Cu</span>
-                        <span class="symbol-btn" data-element="Zn">Zn</span>
-                        <span class="symbol-btn" data-element="Mg">Mg</span>
+                        <span class="symbol-btn" data-element="H">H</span> <span class="symbol-btn" data-element="O">O</span> <span class="symbol-btn" data-element="C">C</span>
+                        <span class="symbol-btn" data-element="N">N</span> <span class="symbol-btn" data-element="S">S</span> <span class="symbol-btn" data-element="P">P</span>
+                        <span class="symbol-btn" data-element="Na">Na</span> <span class="symbol-btn" data-element="Cl">Cl</span> <span class="symbol-btn" data-element="K">K</span>
+                        <span class="symbol-btn" data-element="Ca">Ca</span> <span class="symbol-btn" data-element="Fe">Fe</span> <span class="symbol-btn" data-element="Cu">Cu</span>
+                    </div>
+                    <h3>下角标数字</h3>
+                    <div class="symbols">
+                        <span class="symbol-btn" data-symbol="₁">₁</span> <span class="symbol-btn" data-symbol="₂">₂</span> <span class="symbol-btn" data-symbol="₃">₃</span>
+                        <span class="symbol-btn" data-symbol="₄">₄</span> <span class="symbol-btn" data-symbol="₅">₅</span> <span class="symbol-btn" data-symbol="₆">₆</span>
+                        <span class="symbol-btn" data-symbol="₇">₇</span> <span class="symbol-btn" data-symbol="₈">₈</span> <span class="symbol-btn" data-symbol="₉">₉</span>
+                        <span class="symbol-btn" data-symbol="₀">₀</span>
                     </div>
                 </div>
             </div>
 
             <div id="drawflow" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
         </div>
-        <a href="my-graphs.html" class="btn-back" style="margin-top: 30px;">返回图谱列表</a>
+
+        <div class="action-buttons" style="margin-top: 30px; display: flex; gap: 15px;">
+            <button id="delete-btn" class="btn-back" style="background-color: #e74c3c;"><i class="fas fa-trash"></i> 删除选中卡片</button>
+            <a href="my-graphs.html" class="btn-back">返回图谱列表</a>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow/dist/drawflow.min.js"></script>
-    <script src="js/main.js"></script> <script src="js/knowledge-graph.js"></script>
+    <script src="js/main.js"></script>
+    <script src="js/knowledge-graph.js"></script>
 </body>
 </html>

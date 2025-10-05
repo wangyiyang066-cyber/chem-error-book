@@ -1,7 +1,17 @@
-// js/knowledge-graph.js (终极整合版)
+// js/knowledge-graph.js (最终完整版)
+
+// 全局函数，用于处理拖拽
+function allowDrop(ev) { ev.preventDefault(); }
+function drag(ev) { ev.dataTransfer.setData("node-type", ev.target.getAttribute('data-node-type')); }
 
 document.addEventListener('DOMContentLoaded', function() {
-    // --- 1. 获取当前要编辑的图谱ID ---
+    // 确保 main.js 中的 supabaseClient 已经初始化
+    if (typeof supabaseClient === 'undefined') {
+        console.error("Supabase client not found. Make sure main.js is loaded first.");
+        return;
+    }
+
+    // --- 1. 获取当前图谱ID ---
     const urlParams = new URLSearchParams(window.location.search);
     const graphId = urlParams.get('id');
 
@@ -10,20 +20,13 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
 
-    // --- 2. 配置与初始化 ---
-    const SUPABASE_URL = 'https://ghuyiwhqdellucjxqiwj.supabase.co'; // <<< 填入你的信息
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdodXlpd2hxZGVsbHVjanhxaXdqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzQzNDA5NCwiZXhwIjoyMDczMDEwMDk0fQ.op6RPiEDsjSnwy5yMRq3Got0dfLzPxGKWc0PFa8D5Go'; // <<< 填入你的信息
-    const { createClient } = supabase;
-    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // --- 2. 初始化画板 ---
     const editor = new Drawflow(document.getElementById("drawflow"));
     editor.start();
 
-    let selectedColor = '#3498db'; // 默认节点颜色
     let lastFocusedTextarea = null; // 追踪最后点击的输入框
 
-    // --- 3. 拖拽、颜色选择与工具箱逻辑 ---
-    window.allowDrop = function(ev) { ev.preventDefault(); }
-    window.drag = function(ev) { ev.dataTransfer.setData("node-type", ev.target.getAttribute('data-node-type')); }
+    // --- 3. 拖拽与工具箱逻辑 ---
     window.drop = function(ev) {
         ev.preventDefault();
         const nodeType = ev.dataTransfer.getData("node-type");
@@ -32,40 +35,17 @@ document.addEventListener('DOMContentLoaded', function() {
         else if (nodeType === 'example') nodeName = '具体实例';
         
         if (nodeName) {
-            const data = { color: selectedColor, text: '' };
+            const data = { text: '' };
             const nodeHTML = `<div><textarea df-text placeholder="输入内容..."></textarea></div>`;
-            const nodeId = editor.addNode(nodeName, 1, 1, ev.clientX, ev.clientY, nodeName, data, nodeHTML);
-            updateNodeStyle(nodeId, selectedColor);
+            editor.addNode(nodeName, 1, 1, ev.clientX, ev.clientY, nodeName, data, nodeHTML);
         }
     }
     
-    const colorPicker = document.querySelector('.color-picker');
-    if(colorPicker) {
-        colorPicker.addEventListener('click', (e) => {
-            if (e.target.dataset.color) {
-                selectedColor = e.target.dataset.color;
-                colorPicker.querySelectorAll('span.selected').forEach(el => el.classList.remove('selected'));
-                e.target.classList.add('selected');
-            }
-        });
-    }
-
     const toolbox = document.querySelector('.toolbox');
     if (toolbox) {
         document.getElementById('drawflow').addEventListener('focusin', (e) => {
-            if(e.target.tagName === 'TEXTAREA') {
-                lastFocusedTextarea = e.target;
-            }
+            if(e.target.tagName === 'TEXTAREA') { lastFocusedTextarea = e.target; }
         });
-
-        function insertTextAtCursor(textarea, text) {
-            if (!textarea) return;
-            const start = textarea.selectionStart;
-            const end = textarea.selectionEnd;
-            textarea.value = textarea.value.substring(0, start) + text + textarea.value.substring(end);
-            textarea.focus();
-            textarea.selectionEnd = start + text.length;
-        }
 
         toolbox.addEventListener('click', (e) => {
             const target = e.target.closest('[data-element]') || e.target.closest('[data-symbol]');
@@ -76,7 +56,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             const textToInsert = target.dataset.element || target.dataset.symbol;
             insertTextAtCursor(lastFocusedTextarea, textToInsert);
-            saveGraph();
+            saveGraph(); // 插入后自动保存
         });
     }
 
@@ -87,9 +67,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     const saveGraph = debounce(async () => {
+        if (!user) return; // 如果用户未登录，不保存
         const graphData = editor.export();
         try {
-            await fetch('/.netlify/functions/save-graph', {
+            // 使用带认证的 fetch 辅助函数
+            await fetchWithAuth('/.netlify/functions/save-graph', {
                 method: 'POST',
                 body: JSON.stringify({
                     graphId: graphId,
@@ -98,15 +80,14 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             console.log(`图谱 (ID: ${graphId}) 已自动保存！`);
         } catch (error) { console.error("自动保存失败:", error); }
-    }, 1500);
+    }, 1000); // 延迟1秒保存
 
     async function loadGraph() {
         try {
-            const response = await fetch('/.netlify/functions/get-graph', {
+            const graphData = await fetchWithAuth('/.netlify/functions/get-graph', {
                 method: 'POST',
                 body: JSON.stringify({ graphId: graphId })
             });
-            const graphData = await response.json();
             if (graphData) {
                 editor.import({ "drawflow": graphData });
             }
@@ -116,7 +97,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const channel = supabaseClient.channel(`knowledge_graph_${graphId}`);
     channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'knowledge_graphs', filter: `id=eq.${graphId}` }, (payload) => {
         console.log('收到远程更新，正在同步画板...');
-        const currentUserEditing = editor.precanvas.selected_node || document.activeElement.tagName === 'TEXTAREA';
+        const currentUserEditing = document.activeElement.tagName === 'TEXTAREA';
         if (!currentUserEditing) {
              editor.import({ "drawflow": payload.new.graph_data });
         } else {
@@ -124,39 +105,84 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }).subscribe();
 
-    // --- 5. 核心体验优化功能 ---
-    function updateNodeStyle(nodeId, color) {
-        const nodeElement = document.querySelector(`#node-${nodeId} .title-box`);
-        if (nodeElement) {
-            nodeElement.style.backgroundColor = color;
-        }
-    }
-
-    editor.on('import', function() {
-        const nodes = editor.export().drawflow.main.data;
-        for (const id in nodes) {
-            const color = nodes[id].data.color;
-            if (color) {
-                updateNodeStyle(id, color);
-            }
-        }
-    });
-    
+    // --- 5. 删除功能 (双保险) ---
+    // 方法A: 键盘删除
     editor.on('keydown', function(e) {
-        if (e.keyCode === 46 || e.keyCode === 8) {
-            if (editor.precanvas.selected_node) {
+        if (e.keyCode === 46 || e.keyCode === 8) { // Delete or Backspace
+            if (editor.precanvas.selected_node && document.activeElement.tagName !== 'TEXTAREA') {
                 editor.removeNodeId('node-' + editor.precanvas.selected_node.id);
             }
         }
     });
 
+    // 方法B: 按钮删除
+    const deleteBtn = document.getElementById('delete-btn');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', () => {
+            if (editor.precanvas.selected_node) {
+                editor.removeNodeId('node-' + editor.precanvas.selected_node.id);
+            } else {
+                alert('请先通过单击选中一个卡片，然后再删除。');
+            }
+        });
+    }
+    
+    // --- 6. 辅助函数与事件监听 ---
+    function insertTextAtCursor(textarea, text) {
+        if (!textarea) return;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const oldValue = textarea.value;
+        textarea.value = oldValue.substring(0, start) + text + oldValue.substring(end);
+        textarea.focus();
+        textarea.selectionEnd = start + text.length;
+        // 手动触发 input 事件，以便 Drawflow 知道内容已更改
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    // 监听所有编辑操作，触发自动保存
     editor.on('nodeCreated', saveGraph);
     editor.on('nodeRemoved', saveGraph);
     editor.on('nodeMoved', saveGraph);
     editor.on('connectionCreated', saveGraph);
     editor.on('connectionRemoved', saveGraph);
-    editor.on('clickEnd', saveGraph);
+    // 使用 input 事件监听文本变化，比 clickEnd 更可靠
+    editor.on('change', (event) => {
+        if (event.target && event.target.matches('textarea[df-text]')) {
+            saveGraph();
+        }
+    });
 
-    // --- 6. 初始加载 ---
-    loadGraph();
+
+    // --- 7. 初始加载与认证 ---
+    let user = null;
+
+    // 创建带认证的 fetch 辅助函数
+    async function fetchWithAuth(url, options = {}) {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session) {
+            alert('用户未登录或会话已过期，请重新登录。');
+            window.location.href = 'index.html';
+            throw new Error('User not authenticated');
+        }
+        const headers = { ...options.headers, 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` };
+        const response = await fetch(url, { ...options, headers });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ message: response.statusText }));
+            throw new Error(errorData.message);
+        }
+        return response.json();
+    }
+    
+    // 等待 main.js 确认用户身份
+    document.addEventListener('userReady', (e) => {
+        user = e.detail;
+        loadGraph(); // 用户信息就绪后，加载图谱
+    });
+
+    // 如果 userReady 事件已经错过，手动检查
+    if(supabaseClient.auth.user()) {
+        user = supabaseClient.auth.user();
+        loadGraph();
+    }
 });
