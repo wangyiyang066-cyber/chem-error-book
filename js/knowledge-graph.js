@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let lastFocusedTextarea = null;
     let isInitialized = false;
+    let isLocalChange = false; // 解决“炊烟”问题的关键旗帜！
 
     const toolbox = document.querySelector('.toolbox');
     if (toolbox) {
@@ -81,6 +82,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     const saveGraph = debounce(async () => {
+        isLocalChange = true;
         const graphData = editor.export();
         console.log("正在尝试自动保存...");
         try {
@@ -91,6 +93,8 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log(`图谱 (ID: ${graphId}) 已成功自动保存！`);
         } catch (error) { 
             console.error("自动保存失败:", error.message); 
+        } finally {
+            setTimeout(() => { isLocalChange = false; }, 2000); 
         }
     }, 1500);
 
@@ -123,9 +127,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const channel = supabaseClient.channel(`knowledge_graph_${graphId}`);
     channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'knowledge_graphs', filter: `id=eq.${graphId}` }, (payload) => {
         console.log('收到远程更新...');
-        const currentUserEditing = document.activeElement.tagName === 'TEXTAREA';
-        if (!currentUserEditing) {
-             editor.import({ "drawflow": payload.new.graph_data });
+        if (!isLocalChange) {
+            console.log('非本地修改，正在同步画板...');
+            editor.import({ "drawflow": payload.new.graph_data });
+        } else {
+            console.log('检测到本地修改正在进行，已跳过本次同步以避免冲突。');
         }
     }).subscribe();
 
