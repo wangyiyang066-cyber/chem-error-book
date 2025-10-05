@@ -1,4 +1,4 @@
-// js/my-graphs.js (最终修复版 - 使用标准 Fetch + Authorization Header)
+// js/my-graphs.js (最终完美版)
 
 document.addEventListener('userReady', async () => {
     if (!user || !supabaseClient) { return; }
@@ -8,50 +8,26 @@ document.addEventListener('userReady', async () => {
     const createBtn = document.getElementById('create-graph-btn');
     const newGraphNameInput = document.getElementById('new-graph-name');
 
-    // ▼▼▼ 核心改动：创建一个带用户认证的 fetch 辅助函数 ▼▼▼
+    // (fetchWithAuth 辅助函数和之前一样，保持不变)
     async function fetchWithAuth(url, options = {}) {
-        // 1. 从 Supabase 获取当前用户的 session
         const { data: { session }, error } = await supabaseClient.auth.getSession();
-
-        if (error || !session) {
-            throw new Error('无法获取用户认证信息，请重新登录。');
-        }
-
-        // 2. 准备 headers，并加入 Authorization
-        const headers = {
-            ...options.headers,
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}` // 这就是“身份通行证”
-        };
-
-        // 3. 发出带认证信息的 fetch 请求
+        if (error || !session) { throw new Error('无法获取用户认证信息，请重新登录。'); }
+        const headers = { ...options.headers, 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` };
         const response = await fetch(url, { ...options, headers });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || '请求失败');
-        }
-        
-        return response.json(); // 成功则返回 JSON 数据
+        if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.message || '请求失败'); }
+        return response.json();
     }
-    // ▲▲▲ 改动结束 ▲▲▲
 
     async function loadGraphs() {
         privateList.innerHTML = '<p>加载中...</p>';
         publicList.innerHTML = '<p>加载中...</p>';
         
         try {
-            // ▼▼▼ 核心改动：使用新的 fetchWithAuth 函数 ▼▼▼
-            const graphs = await fetchWithAuth('/.netlify/functions/get-my-graphs', {
-                method: 'POST',
-                body: JSON.stringify({ userId: user.id })
-            });
-            // ▲▲▲ 改动结束 ▲▲▲
-
+            const graphs = await fetchWithAuth('/.netlify/functions/get-my-graphs', { method: 'POST' });
+            
             privateList.innerHTML = '';
             publicList.innerHTML = '';
             
-            // ... 后续渲染列表的逻辑和之前完全一样，无需改动 ...
             let hasPrivate = false;
             let hasPublic = false;
 
@@ -72,34 +48,38 @@ document.addEventListener('userReady', async () => {
                 const actionsContainer = document.createElement('div');
                 graphItemContainer.appendChild(graphLink);
                 graphItemContainer.appendChild(actionsContainer);
+                
+                // --- ▼▼▼ 核心逻辑修正 ▼▼▼ ---
 
+                // 只要是当前用户创建的，就给他显示“管理”按钮 (公开/私密, 删除)
                 if (graph.user_id === user.id) {
                     const togglePublicBtn = document.createElement('button');
                     togglePublicBtn.className = 'toggle-public-btn';
                     togglePublicBtn.dataset.graphId = graph.id;
-                    togglePublicBtn.dataset.isPublic = graph.is_public;
                     togglePublicBtn.textContent = graph.is_public ? '设为私密' : '设为公开';
                     togglePublicBtn.style.marginLeft = '15px';
+                    actionsContainer.appendChild(togglePublicBtn);
 
                     const deleteBtn = document.createElement('button');
                     deleteBtn.textContent = '删除';
                     deleteBtn.className = 'delete-graph-btn';
                     deleteBtn.dataset.graphId = graph.id;
                     deleteBtn.style.marginLeft = '15px';
-                    
-                    actionsContainer.appendChild(togglePublicBtn);
                     actionsContainer.appendChild(deleteBtn);
-                    privateList.appendChild(graphItemContainer);
-                    hasPrivate = true;
+                }
 
-                } else if (graph.is_public) {
-                    const ownerInfo = document.createElement('span');
-                    ownerInfo.textContent = '(公共图谱)';
-                    ownerInfo.style.color = '#777';
-                    actionsContainer.appendChild(ownerInfo);
+                // 根据 is_public 状态决定把它放到哪个列表
+                if (graph.is_public) {
                     publicList.appendChild(graphItemContainer);
                     hasPublic = true;
+                } else {
+                    // 只有自己的私有图谱才出现在私人列表
+                    if (graph.user_id === user.id) {
+                        privateList.appendChild(graphItemContainer);
+                        hasPrivate = true;
+                    }
                 }
+                // --- ▲▲▲ 核心逻辑修正结束 ▲▲▲ ---
             });
 
             if (!hasPrivate) { privateList.innerHTML = '<p>你还没有创建任何私人图谱。</p>'; }
@@ -111,20 +91,35 @@ document.addEventListener('userReady', async () => {
         }
     }
 
+    // 事件委托 (现在也包含删除逻辑)
     document.body.addEventListener('click', async (event) => {
         const target = event.target;
+        // ... (公开/私密切换逻辑不变) ...
         if (target.classList.contains('toggle-public-btn')) {
             const graphId = target.dataset.graphId;
             target.textContent = '处理中...';
             try {
-                await fetchWithAuth('/.netlify/functions/toggle-graph-public', {
-                    method: 'POST',
-                    body: JSON.stringify({ graphId })
-                });
+                await fetchWithAuth('/.netlify/functions/toggle-graph-public', { method: 'POST', body: JSON.stringify({ graphId }) });
                 loadGraphs();
             } catch (error) {
                 alert(`操作失败: ${error.message}`);
                 loadGraphs();
+            }
+        }
+
+        // ▼▼▼ 新增的删除按钮逻辑 ▼▼▼
+        if (target.classList.contains('delete-graph-btn')) {
+            const graphId = target.dataset.graphId;
+            if (confirm('你确定要永久删除这个图谱吗？此操作无法撤销！')) {
+                try {
+                    await fetchWithAuth('/.netlify/functions/delete-graph', {
+                        method: 'POST',
+                        body: JSON.stringify({ graphId })
+                    });
+                    loadGraphs(); // 成功后刷新列表
+                } catch (error) {
+                    alert(`删除失败: ${error.message}`);
+                }
             }
         }
     });
@@ -138,7 +133,7 @@ document.addEventListener('userReady', async () => {
         try {
             const newGraph = await fetchWithAuth('/.netlify/functions/create-new-graph', {
                 method: 'POST',
-                body: JSON.stringify({ userId: user.id, graphName: graphName })
+                body: JSON.stringify({ graphName: graphName })
             });
             window.location.href = `knowledge-graph.html?id=${newGraph.id}`;
         } catch(error) {
