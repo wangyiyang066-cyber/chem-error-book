@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的知识图谱</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <h1>我的知识图谱</h1>
+        <p>在这里管理你的私人图谱，或参与公共图谱的协作。</p>
+        
+        <div class="controls" style="margin-bottom: 30px;">
+            <input type="text" id="new-graph-name" placeholder="输入新图谱的名称..." style="padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
+            <button id="create-graph-btn" class="btn-back">创建新图谱</button>
+        </div>
+
+        <h2><i class="fas fa-user-lock"></i> 我的私人图谱</h2>
+        <div id="private-graphs-list"><p>加载中...</p></div>
+
+        <h2 style="margin-top: 30px;"><i class="fas fa-users"></i> 公共协作图谱</h2>
+        <div id="public-graphs-list"><p>加载中...</p></div>
+
+        <a href="dashboard.html" class="btn-back" style="margin-top: 30px;">返回主面板</a>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/main.js"></script>
+    <script src="js/my-graphs.js"></script>
+</body>
+</html>
