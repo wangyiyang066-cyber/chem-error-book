@@ -6,33 +6,20 @@
     <title>动态知识图谱</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow/dist/drawflow.min.css">
-    <style>
-        #drawflow { width: 100%; height: 600px; border: 2px solid #ddd; border-radius: 8px; background: #f9f9f9; }
-        .drawflow-node { border-radius: 8px !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important; }
-        .drawflow-node .title-box { background: #3498db !important; color: white !important; border-radius: 8px 8px 0 0 !important; }
-        .drawflow-node .box { padding: 15px !important; }
-        .drawflow-node textarea { width: 100%; border: 1px solid #ddd; border-radius: 4px; padding: 5px; }
-        .palette { display: flex; gap: 15px; margin-bottom: 20px; padding: 15px; background-color: #eee; border-radius: 8px; }
-        .palette-item { padding: 10px 15px; background-color: white; border: 1px solid #ccc; border-radius: 8px; cursor: grab; text-align: center; }
-        .controls { margin: 20px 0; display: flex; gap: 15px; align-items: center; }
-        #save-status { color: green; font-weight: bold; }
-    </style>
-</head>
+    </head>
 <body>
     <div class="container">
         <h1>动态知识图谱</h1>
-        <p>从下方拖拽方块到画板上，开始构建你们班级的知识网络吧！</p>
+        <p>从下方拖拽方块到画板上。你的任何操作，其他同学都能实时看到！</p>
         <div class="palette">
             <div class="palette-item" draggable="true" ondragstart="drag(event)" data-node-type="concept"><i class="fas fa-brain"></i> 核心概念</div>
             <div class="palette-item" draggable="true" ondragstart="drag(event)" data-node-type="example"><i class="fas fa-flask"></i> 具体实例</div>
         </div>
         <div id="drawflow" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
-        <div class="controls">
-            <button id="save-button" class="btn-back">保存图谱</button>
-            <span id="save-status" style="display:none;">保存成功！</span>
-        </div>
-        <a href="dashboard.html" class="btn-back">返回主面板</a>
+        <a href="dashboard.html" class="btn-back" style="margin-top: 30px;">返回主面板</a>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow/dist/drawflow.min.js"></script>
     <script src="js/knowledge-graph.js"></script>
 </body>
