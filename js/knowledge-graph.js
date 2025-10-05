@@ -7,11 +7,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const { createClient } = supabase;
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // --- 2. 初始化画板 (和之前一样) ---
+    // --- 2. 初始化画板 ---
     const id = document.getElementById("drawflow");
     const editor = new Drawflow(id);
     editor.start();
-    // ... (拖拽功能和之前一样)
+    
+    // --- 3. 拖拽功能 (和之前一样) ---
     window.allowDrop = function(ev) { ev.preventDefault(); }
     window.drag = function(ev) { ev.dataTransfer.setData("node-type", ev.target.getAttribute('data-node-type')); }
     window.drop = function(ev) {
@@ -24,7 +25,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (nodeName) editor.addNode(nodeName, 1, 1, ev.clientX, ev.clientY, nodeName, {}, nodeHTML);
     }
 
-    // --- 3. 升级保存和加载功能 ---
+    // --- 4. 升级的保存和加载功能 ---
     
     // 这是一个“防抖”函数，能防止我们过于频繁地保存，只有在用户停止操作一小段时间后才执行
     function debounce(func, delay) {
@@ -50,7 +51,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, 1000); // 用户停止操作 1 秒后自动保存
 
-    // 加载函数 (保持不变)
+    // 加载函数
     async function loadGraph() {
         try {
             const response = await fetch('/.netlify/functions/get-graph');
@@ -63,12 +64,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- 4. 注入魔法：开启实时“天线”！ ---
+    // --- 5. 注入魔法：开启实时“天线”！ ---
     
-    // 创建一个唯一的频道名
-    const channel = supabaseClient.channel('knowledge_graph_channel');
+    console.log("正在开启实时天线，监听协作...");
+    const channel = supabaseClient.channel('knowledge_graph_updates');
 
-    // 订阅这个频道，监听数据库的变化
     channel
       .on(
         'postgres_changes',
@@ -80,21 +80,25 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         (payload) => {
           // 当收到更新广播时，重新加载画板！
-          console.log('收到远程更新，正在同步画板...', payload.new.graph_data);
+          console.log('收到远程更新，正在同步画板...');
+          // 我们只导入数据，以避免清空当前用户的视图
           editor.import({ "drawflow": payload.new.graph_data });
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ 实时天线已连接！');
+        }
+      });
 
-    console.log("已开启实时天线，正在监听协作。");
-
-    // --- 5. 绑定自动保存事件 ---
-    // 当画板发生任何变化时，都触发自动保存
+    // --- 6. 绑定自动保存事件 ---
     editor.on('nodeCreated', saveGraph);
     editor.on('nodeRemoved', saveGraph);
     editor.on('nodeMoved', saveGraph);
     editor.on('connectionCreated', saveGraph);
     editor.on('connectionRemoved', saveGraph);
+    // 当节点内容被编辑后也保存
+    editor.on('nodeDataChanged', saveGraph);
 
     // 页面首次加载时，先加载一次图谱
     loadGraph();
