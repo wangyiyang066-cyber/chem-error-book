@@ -4,37 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>动态知识图谱</title>
-    
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow/dist/drawflow.min.css">
-    
     <style>
-        /* Drawflow 基础样式 */
         #drawflow { width: 100%; height: 75vh; border: 2px solid #ddd; border-radius: 8px; background: #f9f9f9; }
         .drawflow-node { border-radius: 8px !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important; }
         .drawflow-node .title-box { background: #3498db !important; color: white !important; border-radius: 8px 8px 0 0 !important; }
         .drawflow-node .box { padding: 15px !important; }
         .drawflow-node textarea { width: 100%; border: 1px solid #ddd; border-radius: 4px; padding: 5px; box-sizing: border-box; }
-
-        /* 新的布局和工具箱样式 */
         .editor-workspace { display: flex; gap: 20px; }
         .left-panel { width: 220px; flex-shrink: 0; }
         #drawflow { flex-grow: 1; }
-
         .palette { display: flex; flex-wrap: wrap; gap: 15px; padding: 15px; background-color: #eee; border-radius: 8px; }
         .palette-item { width: 100%; box-sizing: border-box; padding: 10px 15px; background-color: white; border: 1px solid #ccc; border-radius: 8px; cursor: grab; text-align: center; }
-
         .toolbox { margin-top: 20px; padding: 15px; background-color: #f0f4f8; border-radius: 8px; }
         .toolbox h3 { margin-top: 0; font-size: 16px; color: #2c3e50; border-bottom: 1px solid #dde; padding-bottom: 8px; margin-bottom: 10px; }
         .toolbox .symbols { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
-        .toolbox .symbol-btn {
-            cursor: pointer; padding: 5px 10px; background-color: white;
-            border: 1px solid #ccc; border-radius: 5px; font-family: 'Menlo', 'Courier New', Courier, monospace;
-            font-weight: bold; font-size: 14px; min-width: 32px; text-align: center;
-            transition: background-color 0.2s, transform 0.1s;
-        }
+        .toolbox .symbol-btn { cursor: pointer; padding: 5px 10px; background-color: white; border: 1px solid #ccc; border-radius: 5px; font-family: 'Menlo', 'Courier New', Courier, monospace; font-weight: bold; font-size: 14px; min-width: 32px; text-align: center; transition: background-color 0.2s, transform 0.1s; }
         .toolbox .symbol-btn:hover { background-color: #e9eef2; }
         .toolbox .symbol-btn:active { transform: scale(0.95); }
     </style>
@@ -43,24 +31,18 @@
     <div class="container">
         <h1>动态知识图谱 (化学版)</h1>
         <p>从左侧拖拽卡片，或点击符号插入到卡片中进行创作。</p>
-
         <div class="editor-workspace">
             <div class="left-panel">
                 <div class="palette">
                     <div class="palette-item" draggable="true" ondragstart="drag(event)" data-node-type="concept"><i class="fas fa-brain"></i> 核心概念</div>
                     <div class="palette-item" draggable="true" ondragstart="drag(event)" data-node-type="example"><i class="fas fa-flask"></i> 具体实例</div>
                 </div>
-
                 <div class="toolbox">
                     <h3>化学符号</h3>
                     <div class="symbols">
-                        <span class="symbol-btn" data-symbol="→" title="反应">→</span>
-                        <span class="symbol-btn" data-symbol="⇌" title="可逆">⇌</span>
-                        <span class="symbol-btn" data-symbol="↑" title="气体">↑</span>
-                        <span class="symbol-btn" data-symbol="↓" title="沉淀">↓</span>
-                        <span class="symbol-btn" data-symbol="+" title="加号">+</span>
-                        <span class="symbol-btn" data-symbol="=" title="等于">=</span>
-                        <span class="symbol-btn" data-symbol="△" title="加热">△</span>
+                        <span class="symbol-btn" data-symbol="→" title="反应">→</span> <span class="symbol-btn" data-symbol="⇌" title="可逆">⇌</span>
+                        <span class="symbol-btn" data-symbol="↑" title="气体">↑</span> <span class="symbol-btn" data-symbol="↓" title="沉淀">↓</span>
+                        <span class="symbol-btn" data-symbol="+" title="加号">+</span> <span class="symbol-btn" data-symbol="=" title="等于">=</span> <span class="symbol-btn" data-symbol="△" title="加热">△</span>
                     </div>
                     <h3>常见元素</h3>
                     <div class="symbols">
@@ -73,21 +55,17 @@
                     <div class="symbols">
                         <span class="symbol-btn" data-symbol="₁">₁</span> <span class="symbol-btn" data-symbol="₂">₂</span> <span class="symbol-btn" data-symbol="₃">₃</span>
                         <span class="symbol-btn" data-symbol="₄">₄</span> <span class="symbol-btn" data-symbol="₅">₅</span> <span class="symbol-btn" data-symbol="₆">₆</span>
-                        <span class="symbol-btn" data-symbol="₇">₇</span> <span class="symbol-btn" data-symbol="₈">₈</span> <span class="symbol-btn" data-symbol="₉">₉</span>
-                        <span class="symbol-btn" data-symbol="₀">₀</span>
+                        <span class="symbol-btn" data-symbol="₇">₇</span> <span class="symbol-btn" data-symbol="₈">₈</span> <span class="symbol-btn" data-symbol="₉">₉</span> <span class="symbol-btn" data-symbol="₀">₀</span>
                     </div>
                 </div>
             </div>
-
             <div id="drawflow" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
         </div>
-
         <div class="action-buttons" style="margin-top: 30px; display: flex; gap: 15px;">
             <button id="delete-btn" class="btn-back" style="background-color: #e74c3c;"><i class="fas fa-trash"></i> 删除选中卡片</button>
             <a href="my-graphs.html" class="btn-back">返回图谱列表</a>
         </div>
     </div>
-
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/gh/jerosoler/Drawflow/dist/drawflow.min.js"></script>
     <script src="js/main.js"></script>

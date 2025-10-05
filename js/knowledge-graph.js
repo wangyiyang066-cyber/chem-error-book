@@ -1,66 +1,63 @@
-// js/knowledge-graph.js (最终完美版 - 修复拖拽消失问题)
+let editor; 
+
+function allowDrop(ev) {
+    ev.preventDefault();
+}
+
+function drag(ev) {
+    ev.dataTransfer.setData("node-type", ev.target.getAttribute('node-type'));
+}
+
+function drop(ev) {
+    ev.preventDefault();
+    if (!editor) return;
+
+    const nodeType = ev.dataTransfer.getData("node-type");
+    let nodeName = '';
+    if (nodeType === 'concept') nodeName = '核心概念';
+    else if (nodeType === 'example') nodeName = '具体实例';
+    
+    if (nodeName) {
+        const canvasRect = editor.precanvas.getBoundingClientRect();
+        const pos_x = (ev.clientX - canvasRect.x) / editor.zoom - (editor.canvas_x / editor.zoom);
+        const pos_y = (ev.clientY - canvasRect.y) / editor.zoom - (editor.canvas_y / editor.zoom);
+        
+        editor.addNode(nodeName, 1, 1, pos_x, pos_y, nodeName, { text: '' }, `<div><textarea df-text placeholder="输入内容..."></textarea></div>`);
+    }
+}
 
 document.addEventListener('DOMContentLoaded', function() {
 
-    // --- 0. 初始检查 ---
     if (typeof supabaseClient === 'undefined') {
-        console.error("Supabase client not found. Make sure main.js is loaded before knowledge-graph.js.");
-        alert("初始化失败，请刷新页面重试。");
+        console.error("Supabase client not found.");
         return;
     }
     const urlParams = new URLSearchParams(window.location.search);
     const graphId = urlParams.get('id');
     if (!graphId) {
-        document.getElementById('drawflow').innerHTML = '<div class="detail-card"><h1>错误：未指定图谱ID。</h1><p>请从“我的知识图谱”页面进入。</p></div>';
+        document.getElementById('drawflow').innerHTML = '<h1>错误：未指定图谱ID。</h1>';
         return;
     }
 
-    // --- 1. 初始化画板和状态变量 ---
-    const editor = new Drawflow(document.getElementById("drawflow"));
+    editor = new Drawflow(document.getElementById("drawflow"));
     editor.start();
+
     let lastFocusedTextarea = null;
     let isInitialized = false;
 
-    // --- 2. 拖拽与工具箱逻辑 ---
-    const drawflowContainer = document.getElementById("drawflow");
-    
-    drawflowContainer.addEventListener("dragover", function(event) {
-        event.preventDefault();
-    });
-
-    editor.on('drop', function(event) {
-        const nodeType = event.dataTransfer.getData("node-type");
-        let nodeName = '';
-        if (nodeType === 'concept') nodeName = '核心概念';
-        else if (nodeType === 'example') nodeName = '具体实例';
-        
-        if (nodeName) {
-            editor.addNode(nodeName, 1, 1, event.clientX, event.clientY, nodeName, { text: '' }, `<div><textarea df-text placeholder="输入内容..."></textarea></div>`);
-        }
-    });
-
-    document.querySelectorAll('.palette-item').forEach(item => {
-        item.addEventListener('dragstart', function(event) {
-            event.dataTransfer.setData("node-type", event.target.getAttribute('data-node-type'));
-        });
-    });
-
     const toolbox = document.querySelector('.toolbox');
     if (toolbox) {
-        drawflowContainer.addEventListener('focusin', (e) => {
+        document.getElementById('drawflow').addEventListener('focusin', (e) => {
             if(e.target.tagName === 'TEXTAREA') { lastFocusedTextarea = e.target; }
         });
-
         toolbox.addEventListener('click', (e) => {
             const target = e.target.closest('[data-element]') || e.target.closest('[data-symbol]');
             if (!target || !lastFocusedTextarea) return;
-            const textToInsert = target.dataset.element || target.dataset.symbol;
-            insertTextAtCursor(lastFocusedTextarea, textToInsert);
+            insertTextAtCursor(lastFocusedTextarea, target.dataset.element || target.dataset.symbol);
             saveGraph();
         });
     }
 
-    // --- 3. 核心功能函数 ---
     async function fetchWithAuth(url, options = {}) {
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (!session) {
@@ -109,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (error) { 
             console.error("加载图谱失败:", error.message); 
-            drawflowContainer.innerHTML = `<div class="detail-card"><h1>加载图谱失败</h1><p>${error.message}</p></div>`;
+            document.getElementById('drawflow').innerHTML = `<div class="detail-card"><h1>加载图谱失败</h1><p>${error.message}</p></div>`;
         }
     }
     
@@ -123,7 +120,6 @@ document.addEventListener('DOMContentLoaded', function() {
         textarea.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
-    // --- 4. 绑定所有事件监听器 ---
     const channel = supabaseClient.channel(`knowledge_graph_${graphId}`);
     channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'knowledge_graphs', filter: `id=eq.${graphId}` }, (payload) => {
         console.log('收到远程更新...');
@@ -161,7 +157,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- 5. 初始加载逻辑 ---
     function initializePage() {
         if (isInitialized) return;
         isInitialized = true;
