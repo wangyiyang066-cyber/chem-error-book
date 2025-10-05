@@ -1,3 +1,8 @@
+// js/knowledge-graph.js (最终干净版)
+
+// -----------------------------------------------------------------------------
+// 全局区域: 定义拖拽函数和 editor 变量
+// -----------------------------------------------------------------------------
 let editor; 
 
 function allowDrop(ev) {
@@ -5,12 +10,12 @@ function allowDrop(ev) {
 }
 
 function drag(ev) {
-    ev.dataTransfer.setData("node-type", ev.target.getAttribute('node-type'));
+    ev.dataTransfer.setData("node-type", ev.target.getAttribute('data-node-type'));
 }
 
 function drop(ev) {
     ev.preventDefault();
-    if (!editor) return;
+    if (!editor) return; // 安全检查，确保 editor 已初始化
 
     const nodeType = ev.dataTransfer.getData("node-type");
     let nodeName = '';
@@ -18,6 +23,7 @@ function drop(ev) {
     else if (nodeType === 'example') nodeName = '具体实例';
     
     if (nodeName) {
+        // 精确计算节点在画板上的位置（考虑平移和缩放）
         const canvasRect = editor.precanvas.getBoundingClientRect();
         const pos_x = (ev.clientX - canvasRect.x) / editor.zoom - (editor.canvas_x / editor.zoom);
         const pos_y = (ev.clientY - canvasRect.y) / editor.zoom - (editor.canvas_y / editor.zoom);
@@ -26,10 +32,13 @@ function drop(ev) {
     }
 }
 
+// -----------------------------------------------------------------------------
+// 主逻辑区域: 页面加载完成后执行
+// -----------------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', function() {
 
     if (typeof supabaseClient === 'undefined') {
-        console.error("Supabase client not found.");
+        alert("客户端初始化失败，请检查 main.js。");
         return;
     }
     const urlParams = new URLSearchParams(window.location.search);
@@ -39,13 +48,16 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
 
+    // 将创建的 editor 实例赋值给全局变量
     editor = new Drawflow(document.getElementById("drawflow"));
     editor.start();
 
+    // --- 状态变量 ---
     let lastFocusedTextarea = null;
     let isInitialized = false;
-    let isLocalChange = false; // 解决“炊烟”问题的关键旗帜！
+    let isLocalChange = false; 
 
+    // --- 工具箱逻辑 ---
     const toolbox = document.querySelector('.toolbox');
     if (toolbox) {
         document.getElementById('drawflow').addEventListener('focusin', (e) => {
@@ -59,13 +71,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // --- 核心功能函数 ---
     async function fetchWithAuth(url, options = {}) {
         const { data: { session } } = await supabaseClient.auth.getSession();
-        if (!session) {
-            alert('用户未登录或会话已过期，请重新登录。');
-            window.location.href = 'index.html';
-            throw new Error('User not authenticated');
-        }
+        if (!session) { throw new Error('用户未认证，请重新登录。'); }
         const headers = { ...options.headers, 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` };
         const response = await fetch(url, { ...options, headers });
         if (!response.ok) {
@@ -84,13 +93,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const saveGraph = debounce(async () => {
         isLocalChange = true;
         const graphData = editor.export();
-        console.log("正在尝试自动保存...");
+        console.log("正在自动保存...");
         try {
             await fetchWithAuth('/.netlify/functions/save-graph', {
                 method: 'POST',
                 body: JSON.stringify({ graphId: graphId, graphData: graphData.drawflow })
             });
-            console.log(`图谱 (ID: ${graphId}) 已成功自动保存！`);
+            console.log(`图谱 (ID: ${graphId}) 保存成功！`);
         } catch (error) { 
             console.error("自动保存失败:", error.message); 
         } finally {
@@ -99,7 +108,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 1500);
 
     async function loadGraph() {
-        console.log("正在加载图谱数据...");
+        console.log("正在加载图谱...");
         try {
             const graphData = await fetchWithAuth('/.netlify/functions/get-graph', {
                 method: 'POST',
@@ -109,8 +118,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 editor.import({ "drawflow": graphData });
             }
         } catch (error) { 
-            console.error("加载图谱失败:", error.message); 
-            document.getElementById('drawflow').innerHTML = `<div class="detail-card"><h1>加载图谱失败</h1><p>${error.message}</p></div>`;
+            console.error("加载失败:", error.message); 
+            document.getElementById('drawflow').innerHTML = `<h1>加载图谱失败</h1><p>${error.message}</p>`;
         }
     }
     
@@ -124,6 +133,7 @@ document.addEventListener('DOMContentLoaded', function() {
         textarea.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
+    // --- 事件监听器 ---
     const channel = supabaseClient.channel(`knowledge_graph_${graphId}`);
     channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'knowledge_graphs', filter: `id=eq.${graphId}` }, (payload) => {
         console.log('收到远程更新...');
@@ -131,7 +141,7 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('非本地修改，正在同步画板...');
             editor.import({ "drawflow": payload.new.graph_data });
         } else {
-            console.log('检测到本地修改正在进行，已跳过本次同步以避免冲突。');
+            console.log('本地修改进行中，跳过同步。');
         }
     }).subscribe();
 
@@ -163,6 +173,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // --- 页面初始化 ---
     function initializePage() {
         if (isInitialized) return;
         isInitialized = true;
@@ -173,7 +184,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     setTimeout(() => {
         if (!isInitialized && supabaseClient.auth.getSession()) {
-             console.log("userReady event might have been missed. Initializing manually.");
              initializePage();
         }
     }, 500);
