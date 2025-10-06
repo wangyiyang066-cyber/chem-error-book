@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>我的错题</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .tab-controls {
+            display: flex;
+            border-bottom: 2px solid #eee;
+            margin-bottom: 20px;
+        }
+        .tab-btn {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background-color: transparent;
+            font-size: 1.1em;
+            color: #888;
+            position: relative;
+        }
+        .tab-btn.active {
+            color: #333;
+            font-weight: bold;
+        }
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: #4a90e2;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .error-item {
+            display: block;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            text-decoration: none;
+            color: inherit;
+            transition: box-shadow 0.3s;
+        }
+        .error-item:hover {
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        /* 复习次数不同，颜色不同 */
+        .error-item[data-repetitions="0"] { border-left: 5px solid #e74c3c; } /* 第一次复习 */
+        .error-item[data-repetitions="1"] { border-left: 5px solid #f39c12; } /* 第二次复习 */
+        .error-item[data-repetitions="2"] { border-left: 5px solid #3498db; } /* 第三次复习 */
+        .error-item[data-repetitions="3"] { border-left: 5px solid #2ecc71; } /* 更多次复习 */
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>我的错题</h1>
+        
+        <div class="tab-controls">
+            <button class="tab-btn active" data-tab="review-queue">需要巩固的错题</button>
+            <button class="tab-btn" data-tab="all-errors">所有错题</button>
+        </div>
+
+        <div id="review-queue" class="tab-content active">
+            <div id="review-queue-list">
+                <p>正在加载需要巩固的错题...</p>
+            </div>
+        </div>
+
+        <div id="all-errors" class="tab-content">
+            <div id="all-errors-list">
+                <p>正在加载所有错题记录...</p>
+            </div>
+        </div>
+
+        <a href="index.html" class="btn-back" style="margin-top: 30px;">返回主页</a>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/main.js"></script>
+    <script src="js/my-errors.js"></script> 
+</body>
+</html>

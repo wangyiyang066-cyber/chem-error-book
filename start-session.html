@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>选择答题模式</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* 新增的美化样式 */
+        .container {
+            max-width: 600px; /* 让容器窄一些，更聚焦 */
+        }
+        .menu-options {
+            display: flex;
+            flex-direction: column;
+            gap: 20px; /* 增加选项之间的间距 */
+            margin-top: 30px;
+        }
+        .menu-button {
+            display: flex;
+            align-items: center;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+            padding: 25px;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        .menu-button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+            border-color: #4a90e2;
+        }
+        .menu-button .icon {
+            font-size: 2.5em; /* 增大图标尺寸 */
+            margin-right: 25px;
+            color: #4a90e2;
+            width: 50px; /* 固定图标区域宽度 */
+            text-align: center;
+        }
+        .menu-button .text-content h2 {
+            margin: 0 0 5px 0;
+            color: #333;
+        }
+        .menu-button .text-content p {
+            margin: 0;
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>选择答题模式</h1>
+        <p>请选择你希望开始的练习模式。</p>
+        
+        <div class="menu-options">
+            <a href="chapters.html" class="menu-button">
+                <div class="icon"><i class="fas fa-layer-group"></i></div>
+                <div class="text-content">
+                    <h2>按章节刷题</h2>
+                    <p>针对特定单元的知识点进行巩固练习。</p>
+                </div>
+            </a>
+            <a href="quiz.html?mode=comprehensive" class="menu-button">
+                <div class="icon"><i class="fas fa-crosshairs"></i></div>
+                <div class="text-content">
+                    <h2>刷综合题 (中考模拟)</h2>
+                    <p>模拟真实考试，全面检验你的学习成果。</p>
+                </div>
+            </a>
+        </div>
+        <a href="index.html" class="btn-back" style="margin-top: 30px;">返回主页</a>
+    </div>
+</body>
+</html>

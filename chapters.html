@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>选择章节</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .container {
+            max-width: 900px; /* 容器可以更宽，以容纳网格 */
+        }
+        /* 将 menu-options 设置为网格布局 */
+        .menu-options {
+            display: grid;
+            /* 响应式网格：自动填充，每列最小250px */
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .menu-button {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+            padding: 25px 20px; /* 调整内边距 */
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            text-align: center; /* 文本居中 */
+        }
+        .menu-button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+            border-color: #4a90e2;
+        }
+        .menu-button h2 {
+            margin: 0;
+            font-size: 1.25em; /* 调整字体大小 */
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>选择章节</h1>
+        <p>请选择你希望练习的单元。</p>
+        
+        <div id="chapters-list" class="menu-options">
+            <p>正在加载章节列表...</p>
+        </div>
+        
+        <a href="start-session.html" class="btn-back" style="margin-top: 30px;">返回上一页</a>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/main.js"></script>
+    <script src="js/chapters.js"></script>
+</body>
+</html>
