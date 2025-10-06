@@ -6,77 +6,120 @@
     <title>我的知识图谱</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-
-<style>
-    .modal {
-        display: none; position: fixed; z-index: 1000; left: 0; top: 0;
-        width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5);
-        animation: fadeIn 0.3s;
-    }
-    .modal-content {
-        background-color: #fefefe; margin: 15% auto; padding: 25px;
-        border: 1px solid #888; width: 80%; max-width: 500px;
-        border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-        position: relative; animation: slideIn 0.3s;
-    }
-    .close-btn {
-        color: #aaa; float: right; font-size: 28px; font-weight: bold;
-        cursor: pointer;
-    }
-    .close-btn:hover, .close-btn:focus { color: black; }
-    .status-message { margin-top: 15px; font-weight: bold; }
-    .status-message.success { color: #2ecc71; }
-    .status-message.error { color: #e74c3c; }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes slideIn { from { top: -50px; opacity: 0 } to { top: 0; opacity: 1 } }
-</style>
+    <style>
+        .container {
+            max-width: 800px; /* 调整容器宽度以获得更好的观感 */
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            align-items: center;
+        }
+        #new-graph-name {
+            flex-grow: 1; /* 让输入框占据更多空间 */
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 1em;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        #new-graph-name:focus {
+            outline: none;
+            border-color: #4a90e2;
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
+        }
+        #create-graph-btn {
+            padding: 12px 20px;
+            font-size: 1em;
+            white-space: nowrap; /* 防止按钮文字换行 */
+        }
+        .graph-list-section {
+            margin-top: 30px;
+        }
+        .graph-list-section h2 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.5em;
+            color: #333;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .graph-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background-color: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            transition: box-shadow 0.3s, transform 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .graph-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.08);
+        }
+        .graph-item a {
+            font-size: 1.1em;
+            color: #2c3e50;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .graph-item a:hover {
+            color: #4a90e2;
+        }
+        .graph-item-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .graph-item-actions button {
+            padding: 5px 12px;
+            font-size: 0.85em;
+            border: 1px solid #ccc;
+            background-color: #f9f9f9;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .graph-item-actions button:hover {
+            background-color: #e9e9e9;
+        }
+        .graph-item-actions .delete-graph-btn:hover {
+            background-color: #e74c3c;
+            color: white;
+            border-color: #e74c3c;
+        }
+    </style>
 </head>
-
 <body>
     <div class="container">
         <h1>我的知识图谱</h1>
         <p>在这里管理你的私人图谱，或参与公共图谱的协作。</p>
         
-        <div class="controls" style="margin-bottom: 30px;">
-            <input type="text" id="new-graph-name" placeholder="输入新图谱的名称..." style="padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
+        <div class="controls">
+            <input type="text" id="new-graph-name" placeholder="为你的新图谱起个名字...">
             <button id="create-graph-btn" class="btn-back">创建新图谱</button>
         </div>
 
-        <h2><i class="fas fa-user-lock"></i> 我的私人图谱</h2>
-        <div id="private-graphs-list"><p>加载中...</p></div>
+        <div class="graph-list-section">
+            <h2><i class="fas fa-user-lock"></i> 我的私人图谱</h2>
+            <div id="private-graphs-list"><p>加载中...</p></div>
+        </div>
 
-        <h2 style="margin-top: 30px;"><i class="fas fa-users"></i> 公共协作图谱</h2>
-        <div id="public-graphs-list"><p>加载中...</p></div>
+        <div class="graph-list-section">
+            <h2><i class="fas fa-users"></i> 公共协作图谱</h2>
+            <div id="public-graphs-list"><p>加载中...</p></div>
+        </div>
 
-        <a href="dashboard.html" class="btn-back" style="margin-top: 30px;">返回主面板</a>
+        <a href="index.html" class="btn-back" style="margin-top: 30px;">返回主面板</a>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/main.js"></script>
     <script src="js/my-graphs.js"></script>
-
-    
-<script src="js/my-graphs.js"></script>
-
-    <div id="collaborate-modal" class="modal">
-        <div class="modal-content">
-            <span id="close-modal-btn" class="close-btn">&times;</span>
-            <h2>分享图谱</h2>
-            <p>你正在邀请协作者加入: <strong id="modal-graph-name"></strong></p>
-            <div class="form-group">
-                <label for="collaborator-email">协作者的邮箱地址:</label>
-                <input type="email" id="collaborator-email" placeholder="输入对方的注册邮箱..." style="width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box;">
-            </div>
-            <button id="add-collaborator-btn" class="btn-back" style="margin-top: 15px;">确认添加</button>
-            <p id="modal-status-message" class="status-message"></p>
-        </div>
-    </div>
-    </body>
-</html>
-
-
-
-
-    
 </body>
 </html>

@@ -1,7 +1,7 @@
-// 文件路径: netlify/functions/recommend-question.js
+// 文件路径: netlify/functions/recommend-question.js (最终修复版)
 const { createClient } = require('@supabase/supabase-js');
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY; // 需要用 Service Key 来调用安全函数
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
 
 exports.handler = async function (event, context) {
@@ -14,19 +14,31 @@ exports.handler = async function (event, context) {
       return { statusCode: 400, body: 'Wrong Question ID is required.' };
     }
 
-    // 调用我们在数据库中创建的 `recommend_question` 函数
     const { data: recommendedQuestion, error } = await supabaseAdmin
         .rpc('recommend_question', {
             wrong_question_id: wrongQuestionId,
             requesting_user_id: user.sub
-        })
-        .single(); // 我们期望只返回一道题或null
+        });
 
-    if (error) throw error;
+    // ▼▼▼ 核心改动：优雅地处理“找不到题目”的情况 ▼▼▼
+    if (error) {
+        // 如果错误代码是 PGRST116 (意味着返回了0行)，这不是一个真正的“错误”，
+        // 我们只需要返回 null 即可。
+        if (error.code === 'PGRST116') {
+            return {
+                statusCode: 200,
+                body: JSON.stringify(null), // 明确告诉前端，没有找到题目
+            };
+        }
+        // 如果是其他类型的错误，则正常抛出
+        throw error;
+    }
+    // ▲▲▲ 核心改动结束 ▲▲▲
 
     return {
+      // 如果找到了题目(data不是空数组)，则返回第一项
       statusCode: 200,
-      body: JSON.stringify(recommendedQuestion), // 返回找到的题目，如果没找到则为 null
+      body: JSON.stringify(recommendedQuestion[0] || null), 
     };
 
   } catch (error) {
