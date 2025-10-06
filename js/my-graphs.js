@@ -1,6 +1,15 @@
-// js/my-graphs.js (最终修正版 - 修复创作者显示问题)
+// js/my-graphs.js (最终版 - 包含防止重复初始化)
+
+// ▼▼▼ 核心修正：创建一个“保险锁”旗帜，确保代码只运行一次 ▼▼▼
+let isMyGraphsInitialized = false;
 
 document.addEventListener('userReady', () => {
+    // ▼▼▼ 核心修正：在执行任何代码前，先检查保险锁 ▼▼▼
+    if (isMyGraphsInitialized) {
+        console.log('my-graphs.js is already initialized, skipping duplicate execution.');
+        return;
+    }
+
     if (!user) return;
 
     const privateList = document.getElementById('private-graphs-list');
@@ -39,7 +48,7 @@ document.addEventListener('userReady', () => {
                     const infoContainer = document.createElement('div');
                     infoContainer.style.display = 'flex';
                     infoContainer.style.flexDirection = 'column';
-                    infoContainer.style.gap = '5px'; // 为标题和创作者之间增加一点间距
+                    infoContainer.style.gap = '5px';
 
                     const graphLink = document.createElement('a');
                     graphLink.href = `knowledge-graph.html?id=${graph.id}`;
@@ -51,13 +60,8 @@ document.addEventListener('userReady', () => {
                     
                     graphItemContainer.appendChild(infoContainer);
                     graphItemContainer.appendChild(actionsContainer);
-
-                    // ------------------- ▼▼▼ 核心逻辑修正 ▼▼▼ -------------------
                     
-                    // 判定归属和显示位置
                     if (graph.user_id === user.id) {
-                        // 这是我创建的图谱
-                        // 无论公私，都显示管理按钮
                         const togglePublicBtn = document.createElement('button');
                         togglePublicBtn.className = 'toggle-public-btn';
                         togglePublicBtn.dataset.graphId = graph.id;
@@ -71,16 +75,13 @@ document.addEventListener('userReady', () => {
                         actionsContainer.appendChild(deleteBtn);
 
                         if (graph.is_public) {
-                            // 我创建的公共图谱
                             publicList.appendChild(graphItemContainer);
                             hasPublic = true;
                         } else {
-                            // 我创建的私人图谱
                             privateList.appendChild(graphItemContainer);
                             hasPrivate = true;
                         }
                     } else {
-                        // 这是别人创建的公共图谱
                         if (graph.creator_email) {
                             const creatorInfo = document.createElement('em');
                             creatorInfo.textContent = `由 ${graph.creator_email} 创建`;
@@ -91,8 +92,6 @@ document.addEventListener('userReady', () => {
                         publicList.appendChild(graphItemContainer);
                         hasPublic = true;
                     }
-                    
-                    // ------------------- ▲▲▲ 核心逻辑修正结束 ▲▲▲ -------------------
                 });
             }
 
@@ -105,7 +104,6 @@ document.addEventListener('userReady', () => {
         }
     }
 
-    // ... (事件委托和创建按钮的逻辑和之前一样) ...
     document.body.addEventListener('click', async (event) => {
         const target = event.target;
         if (target.classList.contains('toggle-public-btn')) {
@@ -154,4 +152,7 @@ document.addEventListener('userReady', () => {
     });
 
     loadGraphs();
+    
+    // ▼▼▼ 核心修正：在所有代码成功运行一次后，锁上“保险锁” ▼▼▼
+    isMyGraphsInitialized = true;
 });

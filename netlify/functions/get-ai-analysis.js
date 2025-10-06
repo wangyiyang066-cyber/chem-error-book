@@ -1,8 +1,9 @@
-// 文件路径: netlify/functions/get-ai-analysis.js (带有“真话药剂”的最终调试版)
+// 文件路径: netlify/functions/get-ai-analysis.js (超级嗅探器版)
 
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
 
 exports.handler = async function (event, context) {
+  console.log('--- [get-ai-analysis] Function started. ---');
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
   }
@@ -10,6 +11,7 @@ exports.handler = async function (event, context) {
   try {
     const { question, correctAnswer, keyPoint } = JSON.parse(event.body);
     const apiEndpoint = 'https://api.deepseek.com/chat/completions';
+    
     const payload = {
       model: "deepseek-chat",
       messages: [
@@ -18,35 +20,46 @@ exports.handler = async function (event, context) {
       ]
     };
 
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
+    };
+
+    // --- ▼▼▼ 核心嗅探区域 ▼▼▼ ---
+    console.log('[DEBUG] Preparing to call DeepSeek API.');
+    console.log('[DEBUG] Endpoint:', apiEndpoint);
+    // 为了安全，我们不打印完整的密钥，只打印它是否存在以及长度
+    console.log('[DEBUG] API Key loaded:', !!DEEPSEEK_API_KEY, 'Length:', DEEPSEEK_API_KEY ? DEEPSEEK_API_KEY.length : 0);
+    console.log('[DEBUG] Payload being sent:', JSON.stringify(payload, null, 2));
+
+    console.log('[DEBUG] Sending fetch request now...');
+    
     const response = await fetch(apiEndpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
-      },
+      headers: headers,
       body: JSON.stringify(payload)
     });
 
-    // --- ↓↓↓ “真话药剂”在这里！ ↓↓↓ ---
-    // 如果 API 的响应不成功 (比如 401, 402, 500 等错误)
+    console.log('[DEBUG] Received a response from DeepSeek API.');
+    console.log('[DEBUG] Response Status:', response.status, response.statusText);
+    // --- ▲▲▲ 核心嗅探区域结束 ▲▲▲ ---
+
     if (!response.ok) {
-      // 我们先读取并打印出 DeepSeek 返回的真实错误信息
       const errorBody = await response.text();
-      console.error('DeepSeek API 返回了错误:', response.status, response.statusText, errorBody);
-      // 然后再抛出我们自己的错误
-      throw new Error(`DeepSeek API 服务响应失败，状态码: ${response.status}`);
+      console.error('DeepSeek API returned an error:', errorBody);
+      throw new Error(`DeepSeek API service responded with status: ${response.status}`);
     }
-    // --- ↑↑↑ “真话药剂”在这里！ ↑↑↑ ---
 
     const data = await response.json();
     const analysisText = data.choices[0].message.content;
 
+    console.log('--- [get-ai-analysis] Function finished successfully. ---');
     return {
       statusCode: 200,
       body: JSON.stringify({ analysis: analysisText }),
     };
   } catch (error) {
-    console.error("AI 解析时发生错误:", error);
+    console.error("--- [get-ai-analysis] CRITICAL ERROR caught: ---", error);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: "调用 AI 解析失败。" }),
