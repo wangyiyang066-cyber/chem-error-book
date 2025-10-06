@@ -1,65 +1,67 @@
-// 文件路径: netlify/functions/get-ai-analysis.js (超级嗅探器版)
+// 文件路径: netlify/functions/get-ai-analysis.js (最终版 - 强制注入化学老师角色)
 
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
 
+// ▼▼▼ 核心改动：将我们的黄金提示词定义在后端 ▼▼▼
+const systemPrompt = { 
+  "role": "system", 
+  "content": "你是一名资深的初三化学老师，擅长用清晰、易懂、循循善诱的方式解释复杂的化学问题。你的任务是为学生答错的题目生成高质量的解析和后续问答。请始终保持专业、耐心、友好的老师身份。" 
+};
+// ▲▲▲ 核心改动结束 ▲▲▲
+
 exports.handler = async function (event, context) {
-  console.log('--- [get-ai-analysis] Function started. ---');
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
   }
 
   try {
-    const { question, correctAnswer, keyPoint } = JSON.parse(event.body);
+    // 从前端接收用户的消息历史记录
+    const { messages } = JSON.parse(event.body);
+    if (!messages || !Array.isArray(messages)) {
+      return { statusCode: 400, body: "请求体中必须包含 messages 数组。" };
+    }
+
+    // ▼▼▼ 核心改动：智能地组合最终要发送的消息列表 ▼▼▼
+    // 将我们的系统提示词，与前端传来的用户对话历史，合并成一个完整的列表
+    const finalMessages = [
+      systemPrompt, 
+      ...messages 
+    ];
+    // ▲▲▲ 核心改动结束 ▲▲▲
+
     const apiEndpoint = 'https://api.deepseek.com/chat/completions';
-    
-    const payload = {
-      model: "deepseek-chat",
-      messages: [
-        { "role": "system", "content": "你是一名资深的初三化学老师，擅长用清晰、易懂的方式解释复杂的化学问题。你的任务是为学生答错的题目生成一段高质量的解析。" },
-        { "role": "user", "content": `请根据以下信息，为我生成一段题目解析。解析需要包含：知识点回顾、解题思路、易错点分析，请你注意，关注学生的错误选项，思考为什么学生会在这里出错，并据此给出完整解析。\n---\n题目信息：\n- 核心知识点: ${keyPoint}\n- 题目内容: ${question}\n- 正确答案: ${correctAnswer}\n---\n请开始你的解析：` }
-      ]
-    };
-
-    const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
-    };
-
-    // --- ▼▼▼ 核心嗅探区域 ▼▼▼ ---
-    console.log('[DEBUG] Preparing to call DeepSeek API.');
-    console.log('[DEBUG] Endpoint:', apiEndpoint);
-    // 为了安全，我们不打印完整的密钥，只打印它是否存在以及长度
-    console.log('[DEBUG] API Key loaded:', !!DEEPSEEK_API_KEY, 'Length:', DEEPSEEK_API_KEY ? DEEPSEEK_API_KEY.length : 0);
-    console.log('[DEBUG] Payload being sent:', JSON.stringify(payload, null, 2));
-
-    console.log('[DEBUG] Sending fetch request now...');
     
     const response = await fetch(apiEndpoint, {
       method: 'POST',
-      headers: headers,
-      body: JSON.stringify(payload)
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        messages: finalMessages, // 发送我们组合后的、带有“化学老师”角色的消息列表
+        stream: true
+      })
     });
-
-    console.log('[DEBUG] Received a response from DeepSeek API.');
-    console.log('[DEBUG] Response Status:', response.status, response.statusText);
-    // --- ▲▲▲ 核心嗅探区域结束 ▲▲▲ ---
 
     if (!response.ok) {
       const errorBody = await response.text();
-      console.error('DeepSeek API returned an error:', errorBody);
-      throw new Error(`DeepSeek API service responded with status: ${response.status}`);
+      console.error('DeepSeek API returned an error:', response.status, errorBody);
+      throw new Error(`DeepSeek API error: ${response.status}`);
     }
 
-    const data = await response.json();
-    const analysisText = data.choices[0].message.content;
-
-    console.log('--- [get-ai-analysis] Function finished successfully. ---');
     return {
       statusCode: 200,
-      body: JSON.stringify({ analysis: analysisText }),
+      headers: { 
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+      body: response.body
     };
+    
   } catch (error) {
-    console.error("--- [get-ai-analysis] CRITICAL ERROR caught: ---", error);
+    console.error("AI 解析时发生错误:", error);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: "调用 AI 解析失败。" }),
