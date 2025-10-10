@@ -3,7 +3,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+const supabaseAnonKey = process.env.SUPABASE_SERVICE_KEY;
 
 exports.handler = async function(event, context) {
     // 1. 从请求头中获取用户认证信息
