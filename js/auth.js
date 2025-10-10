@@ -1,9 +1,7 @@
-// js/auth.js (最终检查版)
+// js/auth.js (最终调试版)
 
-// --- 配置：请仔细替换成你自己的 Supabase 信息 ---
-const SUPABASE_URL = 'https://ghuyiwhqdellucjxqiwj.supabase.co'; // <<< 把你自己的 Supabase URL 粘贴在这里
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdodXlpd2hxZGVsbHVjanhxaXdqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzQzNDA5NCwiZXhwIjoyMDczMDEwMDk0fQ.op6RPiEDsjSnwy5yMRq3Got0dfLzPxGKWc0PFa8D5Go'; // <<< 把你自己的 Supabase anon public 密钥粘贴在这里
-// ----------------------------------------------------
+const SUPABASE_URL = 'https://ghuyiwhqdellucjxqiwj.supabase.co'; 
+const SUPABASE_ANON_KEY = process.env.SUPABASE_SERVICE_KEY;
 
 const { createClient } = supabase;
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -24,6 +22,7 @@ function showMessage(message, isError = false) {
 
 signupForm.addEventListener('submit', async (event) => {
     event.preventDefault();
+    showMessage('正在注册...');
     const email = document.getElementById('signup-email').value;
     const password = document.getElementById('signup-password').value;
     const { data, error } = await supabaseClient.auth.signUp({ email, password });
@@ -36,9 +35,16 @@ signupForm.addEventListener('submit', async (event) => {
 
 loginForm.addEventListener('submit', async (event) => {
     event.preventDefault();
+    console.log('Login form submitted. Attempting to sign in...'); // 日志1：确认事件已触发
+    showMessage('正在登录，请稍候...');
+
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
+    
     const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+    console.log('Supabase signIn response:', { data, error }); // 日志2：查看 Supabase 的返回结果
+
     if (error) {
         showMessage(`登录失败: ${error.message}`, true);
     } else {
