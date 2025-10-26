@@ -1,4 +1,4 @@
 agentscope
 dashscope
-"agentscope[rag]"
+agentscope[rag]
 nltk
