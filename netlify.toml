@@ -1,10 +1,23 @@
-# 这是 netlify.toml 文件的最终精确版本
+# netlify.toml
 
-# 这个 [build] 部分告诉 Netlify 你的云函数放在哪里
+# --- 你原来的配置 (保留) ---
+[dev]
+  ignore = ["node_modules", ".venv"]
+
 [build]
   functions = "netlify/functions"
 
-# 这部分专门为我们那个需要长时间思考的 get-ai-analysis 函数
-# 将超时时间设置为 90 秒
 [functions."get-ai-analysis"]
   timeout = 90
+
+# --- 新增的配置 (推荐) ---
+# 为所有 JS 函数设置一个默认的 Node.js 版本
+[functions]
+  node_version = "18"
+
+# --- 新增的配置 (必需) ---
+# 告诉 Netlify 如何处理 .py 文件
+[functions.python]
+  runtime = "python"
+  # AgentScope 需要 Python 3.10+
+  python_version = "3.12"

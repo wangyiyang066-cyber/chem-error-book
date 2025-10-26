@@ -46,7 +46,55 @@ document.addEventListener('userReady', () => {
     async function startQuizSession() { /* ... */ }
     function displayQuestion() { /* ... */ }
     function addMessageToLog(role, content) { /* ... */ }
-    async function streamAIResponse() { /* ... */ }
+    
+    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    // ▼▼▼ 核心修改：这里是唯一被修改的函数 (streamAIResponse) ▼▼▼
+    // ▼▼▼ 我们把它从“流式”改为了“JSON”模式，以匹配 chat_agent.py ▼▼▼
+    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    async function streamAIResponse() {
+        try {
+            // (1) 目标 URL 改变：从 'get-ai-analysis' 换成 'chat_agent'
+            const response = await fetch('/.netlify/functions/chat_agent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages: conversationHistory })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ error: "AI 助手返回了非 OK 状态" }));
+                throw new Error(errorData.error);
+            }
+
+            // (2) (重要！) 不再处理“流”，而是直接解析完整的 JSON 响应
+            const data = await response.json();
+
+            // (3) 从 chat_agent.py 模仿的格式中提取回复
+            // (格式是: { choices: [{ message: { content: "..." } }] })
+            let aiResponseContent = "抱歉，AI 未能返回有效内容。";
+            if (data && data.choices && data.choices[0] && data.choices[0].message) {
+                aiResponseContent = data.choices[0].message.content;
+            }
+
+            // (4) 直接把完整回复添加到日志
+            addMessageToLog('assistant', aiResponseContent);
+
+            // (5) 将完整回复存入历史记录
+            conversationHistory.push({ role: 'assistant', content: aiResponseContent });
+
+        } catch (error) {
+            addMessageToLog('assistant', `抱歉，出现错误: ${error.message}`);
+        } finally {
+            // (6) 保持不变：重新启用输入框
+            aiChatSendBtn.disabled = false;
+            aiChatInput.disabled = false;
+            aiChatInput.focus();
+        }
+    }
+    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+    // ▲▲▲ 核心修改结束 ▲▲▲
+    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
+
     submitBtn.addEventListener('click', async () => { /* ... */ });
     nextQuestionBtn.addEventListener('click', () => { /* ... */ });
     getAiAnalysisBtn.addEventListener('click', () => { /* ... */ });
@@ -142,51 +190,7 @@ document.addEventListener('userReady', () => {
         aiChatLog.scrollTop = aiChatLog.scrollHeight;
         return contentEl;
     }
-    async function streamAIResponse() {
-        try {
-            const response = await fetch('/.netlify/functions/get-ai-analysis', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: conversationHistory })
-            });
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error);
-            }
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let aiResponseContent = '';
-            const aiMessageElement = addMessageToLog('assistant', '...');
-            aiMessageElement.textContent = '';
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-                const chunk = decoder.decode(value);
-                const lines = chunk.split('\n');
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        const jsonData = line.substring(6);
-                        if (jsonData.trim() === '[DONE]') continue;
-                        try {
-                            const parsed = JSON.parse(jsonData);
-                            if (parsed.choices && parsed.choices[0].delta.content) {
-                                aiResponseContent += parsed.choices[0].delta.content;
-                                aiMessageElement.textContent = aiResponseContent;
-                                aiChatLog.scrollTop = aiChatLog.scrollHeight;
-                            }
-                        } catch (e) { }
-                    }
-                }
-            }
-            conversationHistory.push({ role: 'assistant', content: aiResponseContent });
-        } catch (error) {
-            addMessageToLog('assistant', `抱歉，出现错误: ${error.message}`);
-        } finally {
-            aiChatSendBtn.disabled = false;
-            aiChatInput.disabled = false;
-            aiChatInput.focus();
-        }
-    }
+    
     submitBtn.addEventListener('click', async () => {
         submitBtn.disabled = true;
         const question = questionSet[currentQuestionIndex];
@@ -262,10 +266,10 @@ document.addEventListener('userReady', () => {
         const question = questionSet[currentQuestionIndex];
         const keypoints = question.question_knowledge_point_link?.map(link => link.knowledge_points.name) || [];
         conversationHistory = [
-            { "role": "system", "content": "你是一名资深的初三化学老师..." },
+            // (我们不需要在这里发送 system prompt, 因为它已经在 chat_agent.py 里了)
             { "role": "user", "content": `请根据以下信息，为我生成一段题目解析...\n---\n题目信息：\n- 核心知识点: ${keypoints.join(', ')}\n- 题目内容: ${question.full_question}\n- 正确答案: ${question.correct_answer}\n---\n请开始你的解析：` }
         ];
-        streamAIResponse();
+        streamAIResponse(); // 调用我们修改后的新函数
     });
     aiChatSendBtn.addEventListener('click', () => {
         const userQuery = aiChatInput.value.trim();
@@ -275,7 +279,7 @@ document.addEventListener('userReady', () => {
         aiChatInput.value = '';
         aiChatInput.disabled = true;
         aiChatSendBtn.disabled = true;
-        streamAIResponse();
+        streamAIResponse(); // 调用我们修改后的新函数
     });
 
     startQuizSession();

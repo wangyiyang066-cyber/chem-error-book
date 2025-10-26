@@ -1,4 +1,10 @@
+
 node_modules
 .env
 # Local Netlify folder
 .netlify
+google-credentials.json
+node_modules
+myenv
+.netlify
+.venv
