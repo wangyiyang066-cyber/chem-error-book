@@ -10,36 +10,19 @@
     
     <style>
         body { margin: 0; background-color: #0b0f19; overflow: hidden; font-family: 'Noto Sans SC', sans-serif; }
-        
         #navbar {
-            position: absolute; top: 0; left: 0; right: 0;
-            height: 60px;
-            background: rgba(11, 15, 25, 0.8);
-            backdrop-filter: blur(10px);
+            position: absolute; top: 0; left: 0; right: 0; height: 60px;
+            background: rgba(11, 15, 25, 0.8); backdrop-filter: blur(10px);
             display: flex; justify-content: space-between; align-items: center;
-            padding: 0 30px;
-            z-index: 100;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding: 0 30px; z-index: 100; border-bottom: 1px solid rgba(255,255,255,0.1);
         }
         .nav-title { color: #fff; font-size: 18px; font-weight: 500; letter-spacing: 1px; margin-left: 15px; }
-        .btn-back-dashboard {
-            text-decoration: none; color: rgba(255,255,255,0.8); font-size: 20px;
-            transition: color 0.3s; display: flex; align-items: center;
-        }
+        .btn-back-dashboard { text-decoration: none; color: rgba(255,255,255,0.8); font-size: 20px; transition: color 0.3s; display: flex; align-items: center; }
         .btn-back-dashboard:hover { color: #f1c40f; }
-
-        #loading {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-            color: #fff; font-size: 20px; display: flex; flex-direction: column; align-items: center; gap: 10px;
-        }
-
-        /* 自定义 Tooltip 样式 (ECharts 会用 HTML渲染) */
-        .star-tooltip {
-            max-width: 300px;
-            white-space: normal;
-        }
+        #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-size: 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        /* Tooltip 样式 */
+        .star-tooltip { max-width: 300px; white-space: normal; }
         .tooltip-title { font-weight: bold; color: #f1c40f; font-size: 16px; margin-bottom: 5px; border-bottom: 1px solid #555; padding-bottom: 5px;}
-        .tooltip-code { color: #aaa; font-size: 12px; margin-bottom: 8px; }
         .tooltip-content { color: #fff; font-size: 14px; line-height: 1.5; }
     </style>
 </head>
@@ -53,24 +36,107 @@
         <div style="color: rgba(255,255,255,0.5); font-size: 14px;"><span id="user-email"></span></div>
     </div>
 
-    <div id="loading"><i class="fas fa-spinner fa-spin"></i><span>正在扫描化学宇宙...</span></div>
+    <div id="loading"><i class="fas fa-spinner fa-spin"></i><span>正在构建星系...</span></div>
     <div id="container" style="height: 100%"></div>
 
     <script type="text/javascript">
-        // ⚠️ 依然只放 ANON KEY
+        // 配置 Supabase (Anon Key)
         const SUPABASE_URL = "https://ghuyiwhqdellucjxqiwj.supabase.co"; 
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdodXlpd2hxZGVsbHVjanhxaXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MzQwOTQsImV4cCI6MjA3MzAxMDA5NH0.toJ68-C9Kq_GmD_pGiXLH5_TK7MhawdBsdCv1FP-TVk'; 
-        // ===========================================
-
+        
         const { createClient } = supabase;
         const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+        // ==================================================================================
+        // ✍️【手动编辑区】在这里定义你的骨架（单元和课题）
+        // 格式：{ id: "唯一ID", title: "名称", full_code: "编号", layer: 层级, parent_id: "父ID" }
+        // 层级说明: 1=单元(大), 2=课题(中)
+        // ==================================================================================
+        // ==================================================================================
+        // ✍️【手动编辑区】完整版化学课程骨架 (Unit 0 - Unit 12)
+        // ==================================================================================
+        const MANUAL_NODES = [
+            // --- 0. 绪论 ---
+            { id: "root_0", title: "绪论", full_code: "0", layer: 1, parent_id: null },
+            
+            // --- 1. 第一单元 走进化学世界 ---
+            { id: "root_1", title: "第一单元 走进化学世界", full_code: "1", layer: 1, parent_id: null },
+                { id: "topic_1.1", title: "物质的变化和性质", full_code: "1.1", layer: 2, parent_id: "root_1" },
+                { id: "topic_1.2", title: "化学是一门以实验为基础的科学", full_code: "1.2", layer: 2, parent_id: "root_1" },
+                { id: "topic_1.3", title: "走进化学实验室", full_code: "1.3", layer: 2, parent_id: "root_1" },
+
+            // --- 2. 第二单元 我们周围的空气 ---
+            { id: "root_2", title: "第二单元 我们周围的空气", full_code: "2", layer: 1, parent_id: null },
+                { id: "topic_2.1", title: "空气", full_code: "2.1", layer: 2, parent_id: "root_2" },
+                { id: "topic_2.2", title: "氧气", full_code: "2.2", layer: 2, parent_id: "root_2" },
+                { id: "topic_2.3", title: "制取氧气", full_code: "2.3", layer: 2, parent_id: "root_2" },
+
+            // --- 3. 第三单元 物质构成的奥秘 ---
+            { id: "root_3", title: "第三单元 物质构成的奥秘", full_code: "3", layer: 1, parent_id: null },
+                { id: "topic_3.1", title: "分子和原子", full_code: "3.1", layer: 2, parent_id: "root_3" },
+                { id: "topic_3.2", title: "原子的结构", full_code: "3.2", layer: 2, parent_id: "root_3" },
+                { id: "topic_3.3", title: "元素", full_code: "3.3", layer: 2, parent_id: "root_3" },
+
+            // --- 4. 第四单元 自然界的水 ---
+            { id: "root_4", title: "第四单元 自然界的水", full_code: "4", layer: 1, parent_id: null },
+                { id: "topic_4.1", title: "爱护水资源", full_code: "4.1", layer: 2, parent_id: "root_4" },
+                { id: "topic_4.2", title: "水的净化", full_code: "4.2", layer: 2, parent_id: "root_4" },
+                { id: "topic_4.3", title: "水的组成", full_code: "4.3", layer: 2, parent_id: "root_4" },
+                { id: "topic_4.4", title: "化学式与化合价", full_code: "4.4", layer: 2, parent_id: "root_4" },
+
+            // --- 5. 第五单元 化学方程式 ---
+            { id: "root_5", title: "第五单元 化学方程式", full_code: "5", layer: 1, parent_id: null },
+                { id: "topic_5.1", title: "质量守恒定律", full_code: "5.1", layer: 2, parent_id: "root_5" },
+                { id: "topic_5.2", title: "如何正确书写化学方程式", full_code: "5.2", layer: 2, parent_id: "root_5" },
+                { id: "topic_5.3", title: "利用化学方程式的简单计算", full_code: "5.3", layer: 2, parent_id: "root_5" },
+
+            // --- 6. 第六单元 碳和碳的氧化物 ---
+            { id: "root_6", title: "第六单元 碳和碳的氧化物", full_code: "6", layer: 1, parent_id: null },
+                { id: "topic_6.1", title: "金刚石、石墨和C60", full_code: "6.1", layer: 2, parent_id: "root_6" },
+                { id: "topic_6.2", title: "二氧化碳制取的研究", full_code: "6.2", layer: 2, parent_id: "root_6" },
+                { id: "topic_6.3", title: "二氧化碳和一氧化碳", full_code: "6.3", layer: 2, parent_id: "root_6" },
+
+            // --- 7. 第七单元 燃料及其利用 ---
+            { id: "root_7", title: "第七单元 燃料及其利用", full_code: "7", layer: 1, parent_id: null },
+                { id: "topic_7.1", title: "燃烧和灭火", full_code: "7.1", layer: 2, parent_id: "root_7" },
+                { id: "topic_7.2", title: "燃料的合理利用与开发", full_code: "7.2", layer: 2, parent_id: "root_7" },
+
+            // --- 8. 第八单元 金属和金属材料 ---
+            { id: "root_8", title: "第八单元 金属和金属材料", full_code: "8", layer: 1, parent_id: null },
+                { id: "topic_8.1", title: "金属材料", full_code: "8.1", layer: 2, parent_id: "root_8" },
+                { id: "topic_8.2", title: "金属的化学性质", full_code: "8.2", layer: 2, parent_id: "root_8" },
+                { id: "topic_8.3", title: "金属资源的利用和保护", full_code: "8.3", layer: 2, parent_id: "root_8" },
+
+            // --- 9. 第九单元 溶液 ---
+            { id: "root_9", title: "第九单元 溶液", full_code: "9", layer: 1, parent_id: null },
+                { id: "topic_9.1", title: "溶液的形成", full_code: "9.1", layer: 2, parent_id: "root_9" },
+                { id: "topic_9.2", title: "溶解度", full_code: "9.2", layer: 2, parent_id: "root_9" },
+                { id: "topic_9.3", title: "溶液的浓度", full_code: "9.3", layer: 2, parent_id: "root_9" },
+
+            // --- 10. 第十单元 酸和碱 ---
+            { id: "root_10", title: "第十单元 酸和碱", full_code: "10", layer: 1, parent_id: null },
+                { id: "topic_10.1", title: "常见的酸和碱", full_code: "10.1", layer: 2, parent_id: "root_10" },
+                { id: "topic_10.2", title: "酸和碱的中和反应", full_code: "10.2", layer: 2, parent_id: "root_10" },
+
+            // --- 11. 第十一单元 盐 化肥 ---
+            { id: "root_11", title: "第十一单元 盐 化肥", full_code: "11", layer: 1, parent_id: null },
+                { id: "topic_11.1", title: "生活中常见的盐", full_code: "11.1", layer: 2, parent_id: "root_11" },
+                { id: "topic_11.2", title: "化学肥料", full_code: "11.2", layer: 2, parent_id: "root_11" },
+
+            // --- 12. 第十二单元 化学与生活 ---
+            { id: "root_12", title: "第十二单元 化学与生活", full_code: "12", layer: 1, parent_id: null },
+                { id: "topic_12.1", title: "人类重要的营养物质", full_code: "12.1", layer: 2, parent_id: "root_12" },
+                { id: "topic_12.2", title: "化学元素与人体健康", full_code: "12.2", layer: 2, parent_id: "root_12" },
+                { id: "topic_12.3", title: "有机合成材料", full_code: "12.3", layer: 2, parent_id: "root_12" },
+        ];
+        // ==================================================================================
         async function initPage() {
             try {
                 const { data: { session } } = await _supabase.auth.getSession();
                 if (session) {
                     document.getElementById('user-email').innerText = session.user.email;
-                    fetchDataFromFunction(session.access_token); 
+                    // 传入 Token 去获取数据库里的“孙子”节点
+                    fetchAndMergeData(session.access_token); 
                 } else {
                     alert("请先登录！");
                     window.location.href = 'index.html';
@@ -78,76 +144,109 @@
             } catch (err) { console.error(err); }
         }
 
-        async function fetchDataFromFunction(token) {
+        async function fetchAndMergeData(token) {
             try {
+                // 1. 获取数据库里的知识点 (小行星)
                 const response = await fetch('/.netlify/functions/get-stars-data', {
                     method: 'GET',
                     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
                 });
-                if (!response.ok) throw new Error(`Status: ${response.status}`);
-                const data = await response.json();
+                
+                let dbData = [];
+                if (response.ok) {
+                    dbData = await response.json();
+                } else {
+                    console.warn("数据库连接失败，将仅显示手动骨架");
+                }
+
+                // 2. 合并数据：手动骨架 + 数据库知识点
+                const allData = [...MANUAL_NODES];
+
+                // 处理数据库数据：
+                // 关键点：数据库里的 parent_id 必须能对应上我们手动写的 id
+                // 比如数据库里有一条 full_code="8.1.1", 它的 parent 应该是 "topic_8.1"
+                
+                dbData.forEach(item => {
+                    // 这里做一个简单的自动挂载逻辑
+                    // 假设数据库里的 item.parent_id 指向的是数据库原本的 id，这里可能连不上。
+                    // 我们尝试通过 full_code 自动寻找爸爸。
+                    // 例如：如果我是 "8.1.1"，我的爸爸应该是 full_code 为 "8.1" 的那个节点。
+                    
+                    let parentCode = "";
+                    if (item.full_code && item.full_code.includes('.')) {
+                        // 取倒数第二个点之前的部分作为父代码
+                        // 8.1.1 -> 8.1
+                        let parts = item.full_code.split('.');
+                        if (parts.length > 2) {
+                            parts.pop(); // 去掉最后一位
+                            parentCode = parts.join('.');
+                        }
+                    }
+
+                    // 在 MANUAL_NODES 里找爸爸
+                    let parentNode = MANUAL_NODES.find(n => n.full_code === parentCode);
+                    
+                    if (parentNode) {
+                        // 找到了爸爸！修改 parent_id 指向手动节点
+                        item.parent_id = parentNode.id;
+                        item.layer = 3; // 强制设为知识点层级
+                        allData.push(item);
+                    } else {
+                        // 没找到爸爸？可能它是孤立的，或者它自己就是大单元
+                        // 暂时也加进去，防止数据丢失
+                        item.layer = 3;
+                        allData.push(item);
+                    }
+                });
+
                 document.getElementById('loading').style.display = 'none';
-                renderChart(data);
+                renderChart(allData);
+
             } catch (err) {
                 document.getElementById('loading').innerHTML = `<span style="color:#e74c3c">${err.message}</span>`;
             }
         }
 
-        function renderChart(dbData) {
+        function renderChart(nodesData) {
             var dom = document.getElementById('container');
             var myChart = echarts.init(dom, 'dark');
 
             var nodes = [];
             var links = [];
-            // 定义分类：0=单元(大), 1=课题(中), 2=知识点(小)
+            
             var categories = [
-                {name: "核心单元 (Units)", itemStyle: {color: '#f1c40f'}}, // 金黄色
-                {name: "课题 (Topics)", itemStyle: {color: '#3498db'}},   // 蓝色
-                {name: "知识点 (Points)", itemStyle: {color: '#e74c3c'}}, // 红色
-                {name: "细节 (Details)", itemStyle: {color: '#95a5a6'}}   // 灰色
+                {name: "单元 (Unit)", itemStyle: {color: '#f1c40f', borderColor: '#fff', borderWidth: 2}},
+                {name: "课题 (Topic)", itemStyle: {color: '#3498db'}}, 
+                {name: "知识点 (Point)", itemStyle: {color: '#e74c3c'}}
             ];
 
-            dbData.forEach(item => {
-                // 🧠【核心逻辑】根据 full_code 的点号数量来判断层级
-                // "1" -> 0个点 -> Level 0 (Unit)
-                // "2.1" -> 1个点 -> Level 1 (Topic)
-                // "2.1.1" -> 2个点 -> Level 2 (Point)
-                let code = item.full_code || "";
-                let dotCount = (code.match(/\./g) || []).length;
-                
-                let categoryIndex = 0;
-                let symbolSize = 10;
+            nodesData.forEach(item => {
+                // 样式处理
+                let size = 15;
+                let categoryIdx = 2;
                 let labelShow = false;
 
-                if (dotCount === 0) { 
-                    // 🌞 单元 (Unit 1, Unit 2...)
-                    categoryIndex = 0; 
-                    symbolSize = 80; // 巨大
-                    labelShow = true; // 单元名默认显示
-                } else if (dotCount === 1) {
-                    // 🌍 课题 (Topic 2.1)
-                    categoryIndex = 1; 
-                    symbolSize = 40; // 中等
-                } else if (dotCount === 2) {
-                    // 🌕 知识点 (Point 2.1.1)
-                    categoryIndex = 2; 
-                    symbolSize = 20; // 小
-                } else {
-                    // ☄️ 更细的层级
-                    categoryIndex = 3;
-                    symbolSize = 10;
+                if (item.layer === 1) { // 单元
+                    size = 70; 
+                    categoryIdx = 0;
+                    labelShow = true;
+                } else if (item.layer === 2) { // 课题
+                    size = 35; 
+                    categoryIdx = 1;
+                } else { // 知识点
+                    size = 15;
+                    categoryIdx = 2;
                 }
 
                 nodes.push({
                     id: String(item.id),
-                    name: item.title, // 节点名字只显示标题，保持简洁
+                    name: item.title, 
                     value: item.full_code,
-                    // 把详细内容存到 data 里，给 Tooltip 用
-                    extraContent: item.content || "暂无详细描述", 
-                    symbolSize: symbolSize,
-                    category: categoryIndex,
+                    extraContent: item.content || "无详细描述",
+                    symbolSize: size,
+                    category: categoryIdx,
                     draggable: true,
-                    label: { show: labelShow } // 只有大单元默认显示文字
+                    label: { show: labelShow, fontSize: 12 }
                 });
 
                 if (item.parent_id) {
@@ -160,32 +259,21 @@
 
             var option = {
                 backgroundColor: '#0b0f19',
-                // 💡【悬停显示详情】
                 tooltip: {
                     trigger: 'item',
-                    enterable: true, // 允许鼠标移入 tooltip 复制文字
                     formatter: function (params) {
                         if (params.dataType === 'node') {
-                            // 自定义 HTML 模板
                             return `
                                 <div class="star-tooltip">
-                                    <div class="tooltip-title">${params.data.name}</div>
-                                    <div class="tooltip-code">Code: ${params.data.value}</div>
-                                    <div class="tooltip-content">${params.data.extraContent.substring(0, 150)}${params.data.extraContent.length > 150 ? '...' : ''}</div>
+                                    <div class="tooltip-title">${params.data.value} ${params.data.name}</div>
+                                    <div class="tooltip-content">${params.data.extraContent.substring(0, 100)}...</div>
                                 </div>
                             `;
                         }
-                        return params.name; // 连线的 tooltip
                     },
-                    backgroundColor: 'rgba(50, 50, 50, 0.9)',
-                    borderColor: '#777',
-                    textStyle: { color: '#fff' }
+                    backgroundColor: 'rgba(50,50,50,0.9)', borderColor: '#777', textStyle: { color: '#fff' }
                 },
-                legend: [{
-                    data: categories.map(a => a.name),
-                    bottom: 20,
-                    textStyle: { color: '#ccc' }
-                }],
+                legend: [{ data: categories.map(a => a.name), bottom: 20, textStyle: { color: '#ccc' } }],
                 series: [{
                     type: 'graph',
                     layout: 'force',
@@ -193,40 +281,14 @@
                     links: links,
                     categories: categories,
                     roam: true,
-                    label: {
-                        position: 'right',
-                        formatter: '{b}'
-                    },
-                    emphasis: {
-                        focus: 'adjacency',
-                        scale: true, // 鼠标放上去变大
-                        label: { show: true }
-                    },
-                    lineStyle: {
-                        color: 'source',
-                        curveness: 0.2, // 连线稍微弯曲一点，更有星空感
-                        width: 1.5,
-                        opacity: 0.6
-                    },
-                    force: {
-                        repulsion: 400, // 斥力大一点，把星星推开
-                        gravity: 0.1,
-                        edgeLength: [50, 200] // 连线长度范围
-                    }
+                    label: { position: 'right', formatter: '{b}' },
+                    lineStyle: { color: 'source', curveness: 0.3, opacity: 0.7 },
+                    force: { repulsion: 350, edgeLength: [40, 120] }
                 }]
             };
 
             myChart.setOption(option);
             window.addEventListener('resize', myChart.resize);
-            
-            // 🖱️ 点击事件：如果你想点击弹出更详细的窗口
-            myChart.on('click', function (params) {
-                if (params.dataType === 'node') {
-                    console.log("Clicked:", params.name);
-                    // 这里可以扩展：点击后弹出一个 Modal 显示完整 Markdown 笔记
-                    // alert(params.data.extraContent); 
-                }
-            });
         }
 
         initPage();
