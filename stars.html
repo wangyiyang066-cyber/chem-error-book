@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html style="height: 100%">
+<head>
+    <meta charset="utf-8">
+    <title>知识星空 - 化学错题管理系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { margin: 0; background-color: #100C2A; overflow: hidden; font-family: 'Noto Sans SC', sans-serif; }
+        
+        /* 顶部导航条 */
+        #navbar {
+            position: absolute; top: 0; left: 0; right: 0;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.1); /* 半透明背景 */
+            backdrop-filter: blur(10px); /* 毛玻璃效果 */
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0 30px;
+            z-index: 100;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .nav-title { color: #fff; font-size: 18px; font-weight: 500; letter-spacing: 1px; margin-left: 15px; }
+        
+        /* 返回按钮样式 */
+        .btn-back-dashboard {
+            text-decoration: none; 
+            color: rgba(255,255,255,0.8); 
+            font-size: 20px;
+            transition: color 0.3s;
+            display: flex; align-items: center;
+        }
+        .btn-back-dashboard:hover { color: #f1c40f; } /* 悬停变星星色 */
+
+        #loading {
+            position: absolute; top: 50%; left: 50%; 
+            transform: translate(-50%, -50%); 
+            color: #fff; font-size: 20px;
+        }
+    </style>
+</head>
+<body style="height: 100%">
+
+    <div id="navbar">
+        <div style="display: flex; align-items: center;">
+            <a href="dashboard.html" class="btn-back-dashboard" title="返回仪表盘">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <div class="nav-title">🌌 初三化学 · 知识星空</div>
+        </div>
+        
+        <div style="color: rgba(255,255,255,0.5); font-size: 14px;">
+            <span id="user-email"></span>
+        </div>
+    </div>
+
+    <div id="loading">正在连接知识星空数据库...</div>
+    
+    <div id="container" style="height: 100%"></div>
+
+    <script type="text/javascript">
+        // ================= 配置区域 =================
+        // ⚠️ 请填入你的 Supabase 信息
+        const SUPABASE_URL = "https://ghuyiwhqdellucjxqiwj.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdodXlpd2hxZGVsbHVjanhxaXdqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzQzNDA5NCwiZXhwIjoyMDczMDEwMDk0fQ.op6RPiEDsjSnwy5yMRq3Got0dfLzPxGKWc0PFa8D5Go";
+ 
+        // ===========================================
+
+
+        const { createClient } = supabase;
+        const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // 1. 检查登录状态并显示用户邮箱
+        async function checkSession() {
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (session) {
+                document.getElementById('user-email').innerText = session.user.email;
+                fetchAndRender(); // 开始加载图表
+            } else {
+                // 如果没登录，是否要踢回登录页？
+                // window.location.href = 'auth.html';
+                // 暂时允许加载，避免开发时频繁跳转
+                fetchAndRender();
+            }
+        }
+
+        // 2. 获取数据并渲染
+        async function fetchAndRender() {
+            try {
+                // 获取数据
+                const { data, error } = await _supabase
+                    .from('knowledge_nodes')
+                    .select('id, parent_id, title, layer, full_code');
+
+                if (error) throw error;
+                
+                document.getElementById('loading').style.display = 'none';
+                renderChart(data);
+                
+            } catch (err) {
+                document.getElementById('loading').innerHTML = '加载失败: ' + err.message;
+            }
+        }
+
+        // 3. ECharts 配置
+        function renderChart(dbData) {
+            var dom = document.getElementById('container');
+            var myChart = echarts.init(dom, 'dark'); // 使用自带深色主题
+
+            var nodes = [];
+            var links = [];
+            var categories = [
+                {name: "核心单元 (Unit)"},
+                {name: "课题 (Topic)"},
+                {name: "知识点 (Point)"}
+            ];
+
+            dbData.forEach(item => {
+                let layer = item.layer || 3;
+                
+                // 设置星星大小
+                let size = 15;
+                if(layer === 1) size = 60; // 单元最大
+                if(layer === 2) size = 30; // 课题中等
+
+                nodes.push({
+                    id: String(item.id),
+                    name: item.full_code + ' ' + item.title,
+                    symbolSize: size,
+                    draggable: true,
+                    category: layer - 1,
+                    value: item.full_code
+                });
+
+                if (item.parent_id) {
+                    links.push({
+                        source: String(item.parent_id),
+                        target: String(item.id)
+                    });
+                }
+            });
+
+            var option = {
+                backgroundColor: '#100C2A', // 背景色与 CSS 保持一致
+                tooltip: {},
+                legend: [{
+                    data: categories.map(function (a) { return a.name; }),
+                    bottom: 20,
+                    textStyle: { color: '#ccc' }
+                }],
+                series: [{
+                    type: 'graph',
+                    layout: 'force',
+                    data: nodes,
+                    links: links,
+                    categories: categories,
+                    roam: true,
+                    label: {
+                        show: false, // 默认不显示文字，保持画面干净
+                        position: 'right',
+                        formatter: '{b}'
+                    },
+                    emphasis: {
+                        focus: 'adjacency',
+                        label: { show: true }
+                    },
+                    lineStyle: {
+                        color: 'source',
+                        curveness: 0.3
+                    },
+                    force: {
+                        repulsion: 300, // 斥力
+                        edgeLength: [50, 150]
+                    }
+                }]
+            };
+
+            myChart.setOption(option);
+            window.addEventListener('resize', myChart.resize);
+        }
+
+        checkSession();
+    </script>
+</body>
+</html>
