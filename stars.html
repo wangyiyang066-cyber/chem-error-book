@@ -11,12 +11,12 @@
     <style>
         body { margin: 0; background-color: #100C2A; overflow: hidden; font-family: 'Noto Sans SC', sans-serif; }
         
-        /* 顶部导航条 */
+        /* 顶部导航条样式 */
         #navbar {
             position: absolute; top: 0; left: 0; right: 0;
             height: 60px;
-            background: rgba(255, 255, 255, 0.1); /* 半透明背景 */
-            backdrop-filter: blur(10px); /* 毛玻璃效果 */
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
             display: flex; justify-content: space-between; align-items: center;
             padding: 0 30px;
             z-index: 100;
@@ -25,7 +25,7 @@
         
         .nav-title { color: #fff; font-size: 18px; font-weight: 500; letter-spacing: 1px; margin-left: 15px; }
         
-        /* 返回按钮样式 */
+        /* 返回 dashboard 按钮样式 */
         .btn-back-dashboard {
             text-decoration: none; 
             color: rgba(255,255,255,0.8); 
@@ -33,12 +33,15 @@
             transition: color 0.3s;
             display: flex; align-items: center;
         }
-        .btn-back-dashboard:hover { color: #f1c40f; } /* 悬停变星星色 */
+        .btn-back-dashboard:hover { color: #f1c40f; }
 
+        /* 加载动画文字 */
         #loading {
             position: absolute; top: 50%; left: 50%; 
             transform: translate(-50%, -50%); 
             color: #fff; font-size: 20px;
+            display: flex; flex-direction: column; align-items: center;
+            gap: 10px;
         }
     </style>
 </head>
@@ -57,84 +60,110 @@
         </div>
     </div>
 
-    <div id="loading">正在连接知识星空数据库...</div>
+    <div id="loading">
+        <i class="fas fa-spinner fa-spin"></i>
+        <span>正在连接知识星空数据库...</span>
+    </div>
     
     <div id="container" style="height: 100%"></div>
 
     <script type="text/javascript">
         // ================= 配置区域 =================
-        // ⚠️ 请填入你的 Supabase 信息
-        const SUPABASE_URL = "https://ghuyiwhqdellucjxqiwj.supabase.co";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdodXlpd2hxZGVsbHVjanhxaXdqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzQzNDA5NCwiZXhwIjoyMDczMDEwMDk0fQ.op6RPiEDsjSnwy5yMRq3Got0dfLzPxGKWc0PFa8D5Go";
- 
+        // ⚠️ 这里只填 ANON KEY！它是公开的，放在前端没问题。
+        // ⚠️ 绝对不要填 Service Key！
+        const SUPABASE_URL = "https://ghuyiwhqdellucjxqiwj.supabase.co"; 
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdodXlpd2hxZGVsbHVjanhxaXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MzQwOTQsImV4cCI6MjA3MzAxMDA5NH0.toJ68-C9Kq_GmD_pGiXLH5_TK7MhawdBsdCv1FP-TVk'; 
         // ===========================================
 
-
+        // 初始化 Supabase 客户端 (仅用于身份验证，不直接查库)
         const { createClient } = supabase;
-        const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+        const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // 1. 检查登录状态并显示用户邮箱
-        async function checkSession() {
-            const { data: { session } } = await _supabase.auth.getSession();
-            if (session) {
-                document.getElementById('user-email').innerText = session.user.email;
-                fetchAndRender(); // 开始加载图表
-            } else {
-                // 如果没登录，是否要踢回登录页？
-                // window.location.href = 'auth.html';
-                // 暂时允许加载，避免开发时频繁跳转
-                fetchAndRender();
-            }
-        }
-
-        // 2. 获取数据并渲染
-        async function fetchAndRender() {
+        // 1. 检查 Session 并获取数据
+        async function initPage() {
             try {
-                // 获取数据
-                const { data, error } = await _supabase
-                    .from('knowledge_nodes')
-                    .select('id, parent_id, title, layer, full_code');
-
-                if (error) throw error;
+                // 获取当前会话
+                const { data: { session } } = await _supabase.auth.getSession();
                 
-                document.getElementById('loading').style.display = 'none';
-                renderChart(data);
-                
+                if (session) {
+                    // 如果已登录，显示邮箱
+                    document.getElementById('user-email').innerText = session.user.email;
+                    // 使用 Token 去请求后端数据
+                    fetchDataFromFunction(session.access_token); 
+                } else {
+                    // 如果未登录，跳转回主页
+                    alert("请先登录！");
+                    window.location.href = 'index.html';
+                }
             } catch (err) {
-                document.getElementById('loading').innerHTML = '加载失败: ' + err.message;
+                console.error("Auth check failed:", err);
             }
         }
 
-        // 3. ECharts 配置
+        // 2. 调用 Netlify Function 获取数据 (核心安全逻辑)
+        async function fetchDataFromFunction(token) {
+            try {
+                // 请求刚才创建的 get-stars-data.js
+                const response = await fetch('/.netlify/functions/get-stars-data', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`, // 携带用户令牌
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`网络请求错误: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                // 隐藏加载动画
+                document.getElementById('loading').style.display = 'none';
+                
+                // 开始渲染图表
+                renderChart(data);
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById('loading').innerHTML = 
+                    `<span style="color: #e74c3c"><i class="fas fa-exclamation-triangle"></i> 加载失败: ${err.message}</span>`;
+            }
+        }
+
+        // 3. ECharts 渲染逻辑
         function renderChart(dbData) {
             var dom = document.getElementById('container');
-            var myChart = echarts.init(dom, 'dark'); // 使用自带深色主题
+            var myChart = echarts.init(dom, 'dark'); // 使用 ECharts 自带深色主题
 
             var nodes = [];
             var links = [];
+            // 定义图例分类
             var categories = [
                 {name: "核心单元 (Unit)"},
                 {name: "课题 (Topic)"},
                 {name: "知识点 (Point)"}
             ];
 
+            // 转换数据格式
             dbData.forEach(item => {
                 let layer = item.layer || 3;
                 
-                // 设置星星大小
+                // 根据层级设置大小
                 let size = 15;
-                if(layer === 1) size = 60; // 单元最大
-                if(layer === 2) size = 30; // 课题中等
+                if(layer === 1) size = 60; // Unit 最大
+                if(layer === 2) size = 30; // Topic 中等
 
                 nodes.push({
                     id: String(item.id),
-                    name: item.full_code + ' ' + item.title,
+                    name: item.full_code + ' ' + item.title, // 显示 "8.1.1 金属材料"
                     symbolSize: size,
-                    draggable: true,
-                    category: layer - 1,
+                    draggable: true, // 允许拖拽
+                    category: layer - 1, // 对应上面的 categories
                     value: item.full_code
                 });
 
+                // 如果有父节点，建立连线
                 if (item.parent_id) {
                     links.push({
                         source: String(item.parent_id),
@@ -143,8 +172,9 @@
                 }
             });
 
+            // 图表配置项
             var option = {
-                backgroundColor: '#100C2A', // 背景色与 CSS 保持一致
+                backgroundColor: '#100C2A', // 背景色
                 tooltip: {},
                 legend: [{
                     data: categories.map(function (a) { return a.name; }),
@@ -153,18 +183,18 @@
                 }],
                 series: [{
                     type: 'graph',
-                    layout: 'force',
+                    layout: 'force', // 力引导布局
                     data: nodes,
                     links: links,
                     categories: categories,
-                    roam: true,
+                    roam: true, // 开启缩放和平移
                     label: {
-                        show: false, // 默认不显示文字，保持画面干净
+                        show: false, // 默认不显示所有标签，保持整洁
                         position: 'right',
                         formatter: '{b}'
                     },
                     emphasis: {
-                        focus: 'adjacency',
+                        focus: 'adjacency', // 鼠标悬停时高亮相关节点
                         label: { show: true }
                     },
                     lineStyle: {
@@ -172,17 +202,20 @@
                         curveness: 0.3
                     },
                     force: {
-                        repulsion: 300, // 斥力
-                        edgeLength: [50, 150]
+                        repulsion: 300, // 斥力大小
+                        edgeLength: [50, 150] // 连线长度范围
                     }
                 }]
             };
 
             myChart.setOption(option);
+            
+            // 监听窗口大小改变，自动重绘
             window.addEventListener('resize', myChart.resize);
         }
 
-        checkSession();
+        // 启动页面逻辑
+        initPage();
     </script>
 </body>
 </html>
