@@ -1,82 +1,109 @@
 const { createClient } = require('@supabase/supabase-js');
 
 const supabaseUrl = process.env.SUPABASE_URL;
-// 🚨 切换为匿名密钥 (ANON_KEY)
 const supabaseKey = process.env.SUPABASE_ANON_KEY; 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 exports.handler = async function (event, context) {
-  if (event.httpMethod !== "GET") {
-    return { statusCode: 405, body: "Method Not Allowed" };
-  }
+  if (event.httpMethod !== "GET") return { statusCode: 405, body: "Method Not Allowed" };
 
   try {
-    // 🔥 1. 强制鉴权 (Security Check)
+    // 1. 鉴权 (Security Check)
     const authHeader = event.headers.authorization;
-    if (!authHeader) {
-        console.warn("请求缺少 Auth Header");
-        return { statusCode: 401, body: "Unauthorized: Missing token." };
-    }
-    const token = authHeader.replace('Bearer ', '');
-    
-    // 使用 ANON_KEY 创建的客户端来验证 Token
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-        console.error("Token 验证失败:", authError?.message || "User not found.");
-        return { statusCode: 401, body: "Unauthorized: Invalid token." };
-    }
-    
-    // 成功获取到用户ID，覆盖前端传入的 userId（更安全）
+    if (!authHeader) return { statusCode: 401, body: "Unauthorized" };
+    const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+    if (!user) return { statusCode: 401, body: "Invalid Token" };
     const authenticatedUserId = user.id;
 
-    // --- 鉴权成功，开始处理业务逻辑 ---
-    const chapterId = event.queryStringParameters.nodeId; // 注意：前端传的是 nodeId
-    // 你的前端 quiz.js 传的是 nodeId，但你的后端在找 id
-    // const chapterId = event.queryStringParameters.id; 
-    
-    if (!chapterId) {
+    // 2. 获取章节 ID
+    const chapterId = event.queryStringParameters.id; 
+    if (chapterId === undefined || chapterId === null) {
       return { statusCode: 400, body: "Chapter ID is required." };
     }
 
-    console.log(`正在查询第 ${chapterId} 单元，用户ID: ${authenticatedUserId}`);
+    console.log(`[调试] 开始查询第 ${chapterId} 单元，用户: ${authenticatedUserId}`);
 
-    let query = supabase
-      .from('questions')
-      .select(`
-        *,
-        question_knowledge_point_link!inner (
-          knowledge_nodes!inner (
-            id,
-            title,
-            full_code
-          )
-        ),
-        // 确保使用别名来筛选当前用户的答案
-        answers:answers!inner(id, is_correct, user_id) 
-      `, { head: false })
-      .ilike('question_knowledge_point_link.knowledge_nodes.full_code', `${chapterId}.%`);
+    // ==========================================
+    // 第一步：找知识点 (Knowledge Nodes)
+    // ==========================================
+    // 目标：找出所有 full_code 是 "1.%" 或 "01.%" 的知识点 ID
+    // 这一步不需要 join，直接查单表，最稳。
+    const { data: nodeData, error: nodeError } = await supabase
+        .from('knowledge_nodes')
+        .select('id') // 我们只需要 ID
+        .or(`full_code.like.${chapterId}.%,full_code.like.0${chapterId}.%`);
 
-    // 🔥 强制筛选当前用户的答案记录
-    // 注意：这里需要确保 RLS 允许匿名 Key 读取 questions 表和相关的 link 表。
-    // RLS 策略应该设为：`auth.uid() = user_id`
-    query = query.filter('answers.user_id', 'eq', authenticatedUserId);
+    if (nodeError) throw nodeError;
 
-    
-    // 5. 数据清洗：标记 is_done
-    const processedQuestions = rawQuestions.map(q => {
-      // 如果 answers 数组不为空，说明找到了该用户的答题记录
-      const isDone = userId && q.answers && q.answers.length > 0;
-      
-      // 把不需要的 answers 字段删掉，只留一个布尔值，保持数据清爽
-      const { answers, ...rest } = q; 
-      return {
-        ...rest,
-        is_done: isDone
-      };
+    if (!nodeData || nodeData.length === 0) {
+        console.log("[调试] Step 1: 未找到对应章节的知识点，返回空数组。");
+        return { statusCode: 200, body: JSON.stringify([]) };
+    }
+
+    // 提取 ID 列表，例如 [101, 102, 103]
+    const nodeIds = nodeData.map(n => n.id);
+    console.log(`[调试] Step 1: 找到 ${nodeIds.length} 个知识点`);
+
+
+    // ==========================================
+    // 第二步：找关联关系 (Link Table)
+    // ==========================================
+    // 目标：在 link 表里，找到 knowledge_point_id 在上面列表里的记录
+    // 🔥 使用你提供的列名: knowledge_point_id
+    const { data: linkData, error: linkError } = await supabase
+        .from('question_knowledge_point_link')
+        .select('question_id') // 🔥 使用你提供的列名: question_id
+        .in('knowledge_point_id', nodeIds); // 🔥 使用你提供的列名: knowledge_point_id
+
+    if (linkError) throw linkError;
+
+    if (!linkData || linkData.length === 0) {
+        console.log("[调试] Step 2: 这些知识点下没有关联任何题目。");
+        return { statusCode: 200, body: JSON.stringify([]) };
+    }
+
+    // 提取题目 ID 并去重
+    const questionIds = [...new Set(linkData.map(l => l.question_id))];
+    console.log(`[调试] Step 2: 关联到 ${questionIds.length} 道题目`);
+
+
+    // ==========================================
+    // 第三步：查题目详情 (Questions)
+    // ==========================================
+    const { data: questions, error: qError } = await supabase
+        .from('questions')
+        .select('*')
+        .in('id', questionIds);
+
+    if (qError) throw qError;
+
+
+    // ==========================================
+    // 第四步：查用户做题记录 (Answers)
+    // ==========================================
+    // 单独查 answers，防止 Left Join 过滤掉没做过的题
+    const { data: myAnswers, error: aError } = await supabase
+        .from('answers')
+        .select('question_id, is_correct')
+        .eq('user_id', authenticatedUserId)
+        .in('question_id', questionIds);
+
+    if (aError) throw aError;
+
+
+    // ==========================================
+    // 第五步：合并数据
+    // ==========================================
+    const processedQuestions = questions.map(q => {
+        const answerRecord = myAnswers.find(a => a.question_id === q.id);
+        return {
+            ...q,
+            is_done: !!answerRecord, // 有记录就是做过
+            is_correct_history: answerRecord ? answerRecord.is_correct : null
+        };
     });
 
-    console.log(`查询成功，共返回 ${processedQuestions.length} 道题目`);
+    console.log(`[调试] Step 3: 最终返回 ${processedQuestions.length} 道完整题目`);
 
     return {
       statusCode: 200,
@@ -86,9 +113,6 @@ exports.handler = async function (event, context) {
 
   } catch (error) {
     console.error("API Error:", error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: "获取题目失败" }),
-    };
+    return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
   }
 };

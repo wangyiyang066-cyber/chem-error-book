@@ -411,18 +411,48 @@ submitBtn.addEventListener('click', async () => {
             }
         }
     });
-// 5. AI 老师 (DeepSeek)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ==========================================
+// 5. AI 老师 (交互式对话升级版)
+// ==========================================
+
+// 定义一个全局变量存储对话上下文
+let chatHistory = []; 
+
+// 获取新加的DOM元素
+const chatInputArea = document.getElementById('chat-input-area');
+const chatUserInput = document.getElementById('chat-user-input');
+const chatSendBtn = document.getElementById('chat-send-btn');
+
+// --- A. 点击“让 AI 老师讲讲” (开启第一轮对话) ---
 getAiAnalysisBtn.addEventListener('click', async () => {
+    // UI 切换
     getAiAnalysisBtn.style.display = 'none';
     aiChatContainer.style.display = 'block';
-    const loadingId = 'loading-' + Date.now();
-    addMessageToLog('ai', '正在分析你的思路...', loadingId);
+    
+    // 清空旧记录，准备新对话
+    aiChatLog.innerHTML = ''; 
+    chatHistory = []; 
 
     const q = questionSet[currentQuestionIndex];
     const userAnswer = userAnswerInput.value;
 
-    try {
-        const prompt = `
+    // 1. 构造初始的苏格拉底 System Prompt
+    const systemPrompt = `
 你是一位拥有20年经验的资深初中化学教师，擅长使用“元认知策略”和“苏格拉底提问法”引导学生。
 学生做错了一道题，你的任务不是直接告诉他答案，而是按照以下【严格的教学四部曲】一步步引导他自己发现真理。
 
@@ -467,39 +497,104 @@ ${userAnswer}
 4. **字数**：保持在 200 字以内，多提问，少说教。
 
 请开始你的引导：
-        `;
+    `;
 
+    // 2. 存入历史记录 (System Role)
+    chatHistory.push({ role: "system", content: systemPrompt });
+    
+    // 3. 模拟用户发起请求（虽然用户没打字，但这是触发语）
+    const startMsg = "老师，这道题我做错了，能不能帮我分析一下？";
+    chatHistory.push({ role: "user", content: startMsg });
+    
+    // 4. 请求 AI
+    await callAiAPI();
+});
+
+// --- B. 点击“发送”按钮 (后续追问) ---
+chatSendBtn.addEventListener('click', async () => {
+    const text = chatUserInput.value.trim();
+    if (!text) return;
+
+    // 1. 上屏用户的提问
+    addMessageToLog('user', text);
+    chatUserInput.value = ''; // 清空输入框
+    
+    // 2. 存入历史记录
+    chatHistory.push({ role: "user", content: text });
+
+    // 3. 请求 AI
+    await callAiAPI();
+});
+
+// --- C. 支持回车发送 ---
+chatUserInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') chatSendBtn.click();
+});
+
+// --- D. 核心请求函数 (带上下文) ---
+async function callAiAPI() {
+    const loadingId = 'loading-' + Date.now();
+    addMessageToLog('ai', '思考中...', loadingId);
+    
+    // 禁用发送按钮防止重复点击
+    chatSendBtn.disabled = true;
+
+    try {
         const res = await fetch('/.netlify/functions/get-ai-analysis', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: [{ role: "user", content: prompt }] })
+            // 🔥 关键点：发送完整的 chatHistory 数组，而不仅仅是 content
+            body: JSON.stringify({ messages: chatHistory })
         });
 
         if (!res.ok) throw new Error("AI Error");
 
         const rawText = await res.text();
         let content = "";
-        // 解析拼接流
-        const regex = /"content":"(.*?)"/g;
-        let match;
-        while ((match = regex.exec(rawText)) !== null) {
-            content += match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
-        }
-        if (!content) { 
-             try { content = JSON.parse(rawText).choices[0].message.content; } catch(e){}
+        
+        // 解析流式或普通JSON返回
+        try {
+            // 尝试直接解析 JSON (非流式)
+            const json = JSON.parse(rawText);
+            content = json.choices[0].message.content;
+        } catch (e) {
+            // 尝试解析流式数据 (如果是流式接口)
+            const regex = /"content":"(.*?)"/g;
+            let match;
+            while ((match = regex.exec(rawText)) !== null) {
+                content += match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+            }
         }
 
+        // 移除 Loading 动画
         const loadingDiv = document.getElementById(loadingId);
         if(loadingDiv) aiChatLog.removeChild(loadingDiv);
-        typeWriterEffect(content || "解析生成完毕。");
+
+        if (!content) content = "（老师似乎思考卡住了，请重试）";
+
+        // AI 回复上屏
+        typeWriterEffect(content);
+
+        // 🔥 将 AI 的回复也存入历史，形成闭环
+        chatHistory.push({ role: "assistant", content: content });
 
     } catch (err) {
         console.error(err);
         const loadingDiv = document.getElementById(loadingId);
         if(loadingDiv) aiChatLog.removeChild(loadingDiv);
-        addMessageToLog('ai', 'AI 老师暂时离线。');
+        addMessageToLog('ai', 'AI 老师掉线了，请稍后再试。');
+    } finally {
+        chatSendBtn.disabled = false; // 恢复按钮
+        // 聚焦回输入框，方便连续输入
+        setTimeout(() => chatUserInput.focus(), 100);
     }
-});
+}
+
+
+
+
+
+
 
 // --- 辅助函数 ---
 // js/quiz.js 底部
