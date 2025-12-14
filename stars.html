@@ -59,9 +59,97 @@
             color: #fff;
             background-color: rgba(255,255,255,0.2);
         }
+
+
+        /* --- AI 出题模态框样式 --- */
+.ai-modal-overlay {
+    display: none; /* 默认隐藏 */
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.7); z-index: 999;
+    backdrop-filter: blur(5px);
+    justify-content: center; align-items: center;
+}
+.ai-modal {
+    background: rgba(20, 25, 40, 0.95);
+    width: 90%; max-width: 500px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    padding: 25px;
+    box-shadow: 0 0 30px rgba(52, 152, 219, 0.3);
+    color: #fff;
+    position: relative;
+    animation: popIn 0.3s ease-out;
+}
+@keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.ai-header { font-size: 18px; font-weight: bold; color: #3498db; margin-bottom: 15px; display: flex; justify-content: space-between; }
+.ai-question { font-size: 16px; margin-bottom: 20px; line-height: 1.6; }
+.ai-option { 
+    display: block; width: 100%; padding: 12px; margin-bottom: 10px; 
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); 
+    color: #ddd; border-radius: 8px; cursor: pointer; text-align: left; transition: all 0.2s;
+}
+.ai-option:hover { background: rgba(52, 152, 219, 0.2); border-color: #3498db; }
+.ai-option.correct { background: rgba(46, 204, 113, 0.3) !important; border-color: #2ecc71 !important; }
+.ai-option.wrong { background: rgba(231, 76, 60, 0.3) !important; border-color: #e74c3c !important; }
+.ai-analysis { margin-top: 15px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; font-size: 14px; color: #bbb; display: none; }
+.close-btn { cursor: pointer; color: #aaa; font-size: 20px; }
+.loading-box { text-align: center; padding: 30px; color: #3498db; }
+
+/* --- 底部多选栏样式 --- */
+#selection-bar {
+    position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+    background: rgba(20, 25, 40, 0.9); border: 1px solid rgba(52, 152, 219, 0.5);
+    padding: 15px 25px; border-radius: 50px;
+    display: flex; align-items: center; gap: 20px;
+    backdrop-filter: blur(10px); z-index: 500;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    transition: all 0.3s;
+    opacity: 0; pointer-events: none; /* 默认隐藏 */
+}
+#selection-bar.active { opacity: 1; pointer-events: all; bottom: 50px; }
+.sel-tags { display: flex; gap: 10px; }
+.sel-tag { background: #2c3e50; color: #fff; padding: 5px 12px; border-radius: 15px; font-size: 12px; border: 1px solid #34495e; }
+.btn-start { 
+    background: linear-gradient(135deg, #3498db, #8e44ad); color: white; border: none; 
+    padding: 8px 20px; border-radius: 20px; cursor: pointer; font-weight: bold; 
+    box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
+}
+.btn-start:hover { transform: scale(1.05); }
+.btn-clear { color: #e74c3c; cursor: pointer; font-size: 14px; margin-left: 10px;}
     </style>
 </head>
 <body style="height: 100%">
+<div id="aiModal" class="ai-modal-overlay">
+    <div class="ai-modal">
+        <div class="ai-header">
+            <span id="aiTitle"><i class="fas fa-robot"></i> AI 智能出题</span>
+            <span class="close-btn" onclick="closeAiModal()">&times;</span>
+        </div>
+        
+        <div id="aiLoading" class="loading-box">
+            <i class="fas fa-spinner fa-spin fa-2x"></i>
+            <p style="margin-top:15px; font-size:14px;">DeepSeek 正在为您生成专属题目...</p>
+        </div>
+
+        <div id="aiContent" style="display:none;">
+            <div id="qText" class="ai-question"></div>
+            <div id="qOptions"></div>
+            <div id="qAnalysis" class="ai-analysis"></div>
+            <button onclick="closeAiModal()" style="width:100%; margin-top:15px; padding:10px; background:#3498db; border:none; color:white; border-radius:6px; cursor:pointer;">完成练习</button>
+        </div>
+    </div>
+</div>
+
+<div id="selection-bar">
+    <div style="color:#aaa; font-size:14px;">已选知识点:</div>
+    <div id="selected-list" class="sel-tags">
+        </div>
+    <button class="btn-start" onclick="submitSelection()">
+        <i class="fas fa-magic"></i> 生成综合题
+    </button>
+    <i class="fas fa-trash-alt btn-clear" title="清空" onclick="clearSelection()"></i>
+</div>
+
 
     <div id="navbar">
         <div style="display: flex; align-items: center;">
@@ -83,257 +171,319 @@
 
     <div id="container" style="height: 100%"></div>
 
-    <script type="text/javascript">
-        // 1. Supabase 配置 (使用 Anon Key，这是安全的)
-        const SUPABASE_URL = "https://ghuyiwhqdellucjxqiwj.supabase.co"; 
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdodXlpd2hxZGVsbHVjanhxaXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MzQwOTQsImV4cCI6MjA3MzAxMDA5NH0.toJ68-C9Kq_GmD_pGiXLH5_TK7MhawdBsdCv1FP-TVk'; 
-        
-        const { createClient } = supabase;
-        const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+<script type="text/javascript">
+    // 1. Supabase 配置
+    const SUPABASE_URL = "https://ghuyiwhqdellucjxqiwj.supabase.co"; 
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdodXlpd2hxZGVsbHVjanhxaXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MzQwOTQsImV4cCI6MjA3MzAxMDA5NH0.toJ68-C9Kq_GmD_pGiXLH5_TK7MhawdBsdCv1FP-TVk'; 
+    
+    const { createClient } = supabase;
+    const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // 2. 初始化逻辑
-        async function initGalaxy() {
-            try {
-                console.log("正在连接 Supabase...");
-                
-                // 查询知识点表，必须包含 error_count 和 total_attempts
-                const { data: nodesData, error } = await _supabase
-                    .from('knowledge_nodes')
-                    .select('*') // 获取所有字段
-                    .order('full_code', { ascending: true });
+    // 全局变量：存储用户选中的知识点
+    let selectedNodes = []; 
 
-                if (error) throw error;
-                
-                if (!nodesData || nodesData.length === 0) {
-                    throw new Error("数据库是空的，请先运行上传脚本！");
-                }
+    // 2. 初始化逻辑
+    async function initGalaxy() {
+        try {
+            // console.log("正在连接 Supabase...");
+            const { data: nodesData, error } = await _supabase
+                .from('knowledge_nodes')
+                .select('*') 
+                .order('full_code', { ascending: true });
 
-                console.log(`成功获取 ${nodesData.length} 个知识点数据`);
-                
-                // 隐藏加载动画
-                document.getElementById('loading').style.display = 'none';
-                
-                // 开始渲染 ECharts 
-                renderChart(nodesData);
+            if (error) throw error;
+            if (!nodesData || nodesData.length === 0) throw new Error("数据库为空");
 
-            } catch (err) {
-                console.error(err);
-                document.getElementById('loading').innerHTML = 
-                    `<i class="fas fa-exclamation-triangle" style="color:#e74c3c"></i><span>加载失败: ${err.message}</span>`;
-            }
+            document.getElementById('loading').style.display = 'none';
+            renderChart(nodesData);
+        } catch (err) {
+            console.error(err);
+            document.getElementById('loading').innerHTML = `<i class="fas fa-exclamation-triangle" style="color:#e74c3c"></i><span>Error: ${err.message}</span>`;
         }
+    }
 
-        // 3. 渲染图表核心函数
-        function renderChart(dbData) {
-            var dom = document.getElementById('container');
-            var myChart = echarts.init(dom, 'dark'); // 使用暗黑主题
+    // 3. 渲染图表
+    function renderChart(dbData) {
+        var dom = document.getElementById('container');
+        var myChart = echarts.init(dom, 'dark');
 
-            var nodes = [];
-            var links = [];
+        var nodes = [];
+        var links = [];
+        var categories = [{name: "单元 (Unit)"}, {name: "课题 (Topic)"}, {name: "知识点 (Point)"}];
+
+        dbData.forEach(item => {
+            let size = 10;
+            let categoryIdx = 2;
+            let labelShow = false;
+            let nodeColor = '#7f8c8d'; 
+            let borderColor = null;
+            let borderWidth = 0;
+
+            // --- 核心：计算错误率逻辑 (完全保留) ---
+            const total = item.total_attempts || 0;
+            const errors = item.error_count || 0;
+            let errorRate = 0;
+            let statusText = "未探索";
+            let statusColor = "#7f8c8d";
             
-            // 定义层级分类
-            var categories = [
-                {name: "单元 (Unit)"}, 
-                {name: "课题 (Topic)"},
-                {name: "知识点 (Point)"} 
-            ];
-
-            // 遍历数据，构建节点
-            dbData.forEach(item => {
-                let size = 10;
-                let categoryIdx = 2;
-                let labelShow = false;
-                let nodeColor = '#7f8c8d'; // 默认灰色
-                let borderColor = null;
-                let borderWidth = 0;
-
-                // --- 🔥 核心：计算错误率逻辑 ---
-                const total = item.total_attempts || 0;
-                const errors = item.error_count || 0;
-                let errorRate = 0;
-                let statusText = "未探索";
-                let statusColor = "#7f8c8d";
-                
-                if (total > 0) {
-                    errorRate = (errors / total) * 100;
-                    if (errorRate > 60) {
-                        statusText = "🚨 需重点攻克";
-                        statusColor = "#e74c3c"; // 红
-                    } else if (errorRate > 30) {
-                        statusText = "⚠️ 需巩固";
-                        statusColor = "#f1c40f"; // 黄
-                    } else {
-                        statusText = "✅ 已掌握";
-                        statusColor = "#2ecc71"; // 绿
-                    }
+            if (total > 0) {
+                errorRate = (errors / total) * 100;
+                if (errorRate > 60) {
+                    statusText = "🚨 需重点攻克";
+                    statusColor = "#e74c3c"; // 红
+                } else if (errorRate > 30) {
+                    statusText = "⚠️ 需巩固";
+                    statusColor = "#f1c40f"; // 黄
+                } else {
+                    statusText = "✅ 已掌握";
+                    statusColor = "#2ecc71"; // 绿
                 }
+            }
 
-                // --- 根据层级 (Layer) 设置样式 ---
-                if (item.layer === 1) { 
-                    // 单元节点 (最大)
-                    size = 60; categoryIdx = 0; labelShow = true;
-                    nodeColor = '#e67e22'; // 橙色
-                } else if (item.layer === 2) { 
-                    // 课题节点 (中等)
-                    size = 25; categoryIdx = 1; labelShow = false;
-                    nodeColor = '#3498db'; // 蓝色
-                } else { 
-                    // 知识点节点 (最小，根据错误率变色)
-                    size = 15; categoryIdx = 2; labelShow = false;
-                    
-                    if (total === 0) {
-                        nodeColor = '#7f8c8d'; // 灰：未做过
-                    } else if (errorRate > 60) {
-                        nodeColor = '#e74c3c'; // 红：高频错题
-                        size = 22; // 错题变大
-                        borderColor = '#fff'; // 加白边
-                        borderWidth = 2;
-                    } else if (errorRate > 30) {
-                        nodeColor = '#f1c40f'; // 黄：中等
-                    } else {
-                        nodeColor = '#2ecc71'; // 绿：掌握
-                    }
-                }
+            // --- 样式逻辑 ---
+            if (item.layer === 1) { 
+                size = 60; categoryIdx = 0; labelShow = true; nodeColor = '#e67e22'; 
+            } else if (item.layer === 2) { 
+                size = 25; categoryIdx = 1; labelShow = false; nodeColor = '#3498db'; 
+            } else { 
+                size = 15; categoryIdx = 2; labelShow = false;
+                if (total === 0) { nodeColor = '#7f8c8d'; } 
+                else if (errorRate > 60) {
+                    nodeColor = '#e74c3c'; size = 22; borderColor = '#fff'; borderWidth = 2;
+                } else if (errorRate > 30) { nodeColor = '#f1c40f'; } 
+                else { nodeColor = '#2ecc71'; }
+            }
 
-                // 添加节点数据
-                nodes.push({
-                    id: String(item.id),
-                    name: item.title,
-                    value: item.full_code, // 编号
-                    itemStyle: {
-                        color: nodeColor,
-                        borderColor: borderColor,
-                        borderWidth: borderWidth,
-                        // 给高频错题加红色发光特效
-                        shadowBlur: (errorRate > 60 && item.layer === 3) ? 20 : 0,
-                        shadowColor: (errorRate > 60 && item.layer === 3) ? '#e74c3c' : null
-                    },
-                    // 将统计数据存入 extra，供 Tooltip 使用
-                    extra: {
-                        content: item.content,
-                        layer: item.layer,
-                        total: total,
-                        errors: errors,
-                        rate: errorRate.toFixed(1),
-                        status: statusText,
-                        statusColor: statusColor
-                    },
-                    symbolSize: size,
-                    category: categoryIdx,
-                    draggable: true,
-                    label: {
-                        show: labelShow,
-                        position: 'right',
-                        formatter: '{b}'
-                    }
-                });
-
-                // 构建连线
-                if (item.parent_id) {
-                    links.push({
-                        source: String(item.parent_id),
-                        target: String(item.id),
-                        lineStyle: {
-                            color: 'source',
-                            opacity: 0.3,
-                            curveness: 0.1
-                        }
-                    });
-                }
+            nodes.push({
+                id: String(item.id),
+                name: item.title,
+                value: item.full_code,
+                itemStyle: {
+                    color: nodeColor,
+                    borderColor: borderColor,
+                    borderWidth: borderWidth,
+                    shadowBlur: (errorRate > 60 && item.layer === 3) ? 20 : 0,
+                    shadowColor: (errorRate > 60 && item.layer === 3) ? '#e74c3c' : null
+                },
+                // --- 关键：保留所有数据供 Tooltip 使用 ---
+                extra: {
+                    content: item.content,
+                    layer: item.layer,
+                    total: total,
+                    errors: errors,
+                    rate: errorRate.toFixed(1),
+                    status: statusText,
+                    statusColor: statusColor
+                },
+                symbolSize: size,
+                category: categoryIdx,
+                label: { show: labelShow, position: 'right', formatter: '{b}' }
             });
 
-            // ECharts 配置项
-            var option = {
-                backgroundColor: '#0b0f19',
-                // Tooltip 配置 (核心交互)
-                tooltip: {
-                    trigger: 'item',
-                    enterable: true,
-                    confine: true,
-                    backgroundColor: 'rgba(20, 20, 30, 0.95)',
-                    borderColor: '#444',
-                    padding: 0,
-                    borderRadius: 8,
-                    textStyle: { color: '#fff' },
-                    formatter: function (params) {
-                        if (params.dataType === 'node') {
-                            const d = params.data;
-                            const ex = d.extra;
-                            
-                            // 只有 Layer 3 (知识点) 显示详细统计条
-                            let statsHtml = '';
-                            if (ex.layer === 3) {
-                                statsHtml = `
-                                    <div style="margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.1);">
-                                        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px;">
-                                            <span style="color:#aaa;">总练习: ${ex.total}次</span>
-                                            <span style="color:${ex.statusColor}; font-weight:bold;">${ex.status}</span>
-                                        </div>
-                                        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px;">
-                                            <span style="color:#aaa;">错误率:</span>
-                                            <span style="color:#fff;">${ex.rate}% (${ex.errors}错)</span>
-                                        </div>
-                                        <div style="width:100%; height:4px; background:#333; border-radius:2px; overflow:hidden;">
-                                            <div style="width:${Math.min(ex.rate, 100)}%; height:100%; background:${ex.statusColor};"></div>
-                                        </div>
-                                    </div>
-                                `;
-                            }
+            if (item.parent_id) {
+                links.push({
+                    source: String(item.parent_id),
+                    target: String(item.id),
+                    lineStyle: { color: 'source', opacity: 0.3, curveness: 0.1 }
+                });
+            }
+        });
 
-                            return `
-                                <div class="star-tooltip" style="padding:15px;">
-                                    <div class="tooltip-header" style="color:${params.color};">
-                                        <span class="tag-badge" style="background:${params.color}">${d.value}</span>
-                                        ${d.name}
+        var option = {
+            backgroundColor: '#0b0f19',
+            // --- 🔥 这里我把原来的 Tooltip 完整放回来了！ ---
+            tooltip: {
+                trigger: 'item',
+                enterable: true,
+                confine: true,
+                backgroundColor: 'rgba(20, 20, 30, 0.95)',
+                borderColor: '#444',
+                padding: 0,
+                borderRadius: 8,
+                textStyle: { color: '#fff' },
+                formatter: function (params) {
+                    if (params.dataType === 'node') {
+                        const d = params.data;
+                        const ex = d.extra;
+                        
+                        // 只有 Layer 3 (知识点) 显示详细统计条
+                        let statsHtml = '';
+                        if (ex.layer === 3) {
+                            statsHtml = `
+                                <div style="margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.1);">
+                                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px;">
+                                        <span style="color:#aaa;">总练习: ${ex.total}次</span>
+                                        <span style="color:${ex.statusColor}; font-weight:bold;">${ex.status}</span>
                                     </div>
-                                    <div class="tooltip-body" style="max-height:150px; overflow-y:auto; color:#ccc;">
-                                        ${ex.content || "暂无知识点描述..."}
+                                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px;">
+                                        <span style="color:#aaa;">错误率:</span>
+                                        <span style="color:#fff;">${ex.rate}% (${ex.errors}错)</span>
                                     </div>
-                                    ${statsHtml}
+                                    <div style="width:100%; height:4px; background:#333; border-radius:2px; overflow:hidden;">
+                                        <div style="width:${Math.min(ex.rate, 100)}%; height:100%; background:${ex.statusColor};"></div>
+                                    </div>
                                 </div>
                             `;
                         }
-                        return null;
-                    }
-                },
-                series: [{
-                    type: 'graph',
-                    layout: 'force',
-                    data: nodes,
-                    links: links,
-                    categories: categories,
-                    roam: true,
-                    label: { color: '#fff' },
-                    force: {
-                        repulsion: 150,    // 斥力：越大节点分得越开
-                        gravity: 0.1,      // 引力：把节点往中间拉
-                        edgeLength: [30, 80],
-                        layoutAnimation: true
-                    },
-                    emphasis: {
-                        focus: 'adjacency',
-                        lineStyle: { width: 3 }
-                    }
-                }]
-            };
 
-            myChart.setOption(option);
-            
-            // 窗口大小改变时自动调整
-            window.addEventListener('resize', () => myChart.resize());
-
-            // 点击事件：点击红色节点可以跳转去练习 (可选功能)
-            myChart.on('click', function (params) {
-                if (params.dataType === 'node' && params.data.extra.layer === 3) {
-                    console.log("选中知识点:", params.data.name);
-                    // 如果你想点击跳转，可以把下面这行注释取消：
-                    // window.location.href = `quiz.html?mode=chapter&kp_id=${params.data.id}`;
+                        return `
+                            <div class="star-tooltip" style="padding:15px;">
+                                <div class="tooltip-header" style="color:${params.color};">
+                                    <span class="tag-badge" style="background:${params.color}">${d.value}</span>
+                                    ${d.name}
+                                </div>
+                                <div class="tooltip-body" style="max-height:150px; overflow-y:auto; color:#ccc;">
+                                    ${ex.content || "暂无知识点描述..."}
+                                </div>
+                                ${statsHtml}
+                            </div>
+                        `;
+                    }
+                    return null;
                 }
+            },
+            series: [{
+                type: 'graph',
+                layout: 'force',
+                data: nodes,
+                links: links,
+                categories: categories,
+                roam: true,
+                label: { color: '#fff' },
+                force: { repulsion: 150, gravity: 0.1, edgeLength: [30, 80] }
+            }]
+        };
+
+        myChart.setOption(option);
+        window.addEventListener('resize', () => myChart.resize());
+
+        // --- 点击事件：加入多选列表 ---
+        myChart.on('click', function (params) {
+            if (params.dataType === 'node' && params.data.extra.layer === 3) {
+                toggleSelection(params.data);
+            }
+        });
+    }
+
+    // ============================================
+    // 🔥 功能模块：多选与 AI 交互
+    // ============================================
+
+    function toggleSelection(nodeData) {
+        const index = selectedNodes.findIndex(n => n.id === nodeData.id);
+        if (index > -1) {
+            selectedNodes.splice(index, 1);
+        } else {
+            if (selectedNodes.length >= 3) {
+                alert("贪多嚼不烂，一次最多选 3 个知识点哦！");
+                return;
+            }
+            selectedNodes.push({
+                id: nodeData.id,
+                name: nodeData.name,
+                content: nodeData.extra.content
             });
         }
+        updateSelectionUI();
+    }
 
-        // 启动程序
-        initGalaxy();
-    </script>
+    function updateSelectionUI() {
+        const bar = document.getElementById('selection-bar');
+        const list = document.getElementById('selected-list');
+        
+        if (selectedNodes.length > 0) {
+            bar.classList.add('active');
+        } else {
+            bar.classList.remove('active');
+        }
+
+        list.innerHTML = selectedNodes.map(n => 
+            `<span class="sel-tag">${n.name}</span>`
+        ).join('');
+    }
+
+    function clearSelection() {
+        selectedNodes = [];
+        updateSelectionUI();
+    }
+
+    async function submitSelection() {
+        if (selectedNodes.length === 0) return;
+
+        const modal = document.getElementById('aiModal');
+        const loading = document.getElementById('aiLoading');
+        const contentDiv = document.getElementById('aiContent');
+        const title = document.getElementById('aiTitle');
+
+        modal.style.display = 'flex';
+        loading.style.display = 'block';
+        contentDiv.style.display = 'none';
+
+        const names = selectedNodes.map(n => n.name).join(' + ');
+        title.innerHTML = `<i class="fas fa-brain"></i> 综合特训: ${names}`;
+
+        try {
+            const response = await fetch('/.netlify/functions/generate-quiz', {
+                method: 'POST',
+                body: JSON.stringify({ items: selectedNodes })
+            });
+            
+            const data = await response.json();
+            renderQuiz(data);
+            
+        } catch (err) {
+            console.error(err);
+            alert("出题服务繁忙，请稍后再试。");
+            closeAiModal();
+        }
+    }
+
+    // --- AI 题目渲染与交互 ---
+    let currentAnswer = "";
+    function renderQuiz(quizData) {
+        document.getElementById('aiLoading').style.display = 'none';
+        document.getElementById('aiContent').style.display = 'block';
+        document.getElementById('qText').innerText = quizData.question;
+        currentAnswer = quizData.correct.trim().toUpperCase(); 
+        
+        const optsDiv = document.getElementById('qOptions');
+        optsDiv.innerHTML = ""; 
+        
+        quizData.options.forEach(optStr => {
+            const letter = optStr.charAt(0).toUpperCase(); 
+            const btn = document.createElement('button');
+            btn.className = 'ai-option';
+            btn.innerText = optStr;
+            btn.onclick = () => checkAnswer(btn, letter, quizData.analysis);
+            optsDiv.appendChild(btn);
+        });
+        document.getElementById('qAnalysis').style.display = 'none';
+    }
+
+    function checkAnswer(btn, selectedLetter, analysisText) {
+        const allBtns = document.querySelectorAll('.ai-option');
+        const analysisDiv = document.getElementById('qAnalysis');
+        allBtns.forEach(b => b.disabled = true);
+        
+        if (selectedLetter === currentAnswer) {
+            btn.classList.add('correct');
+            analysisDiv.innerHTML = `<strong style="color:#2ecc71">✅ 回答正确！</strong><br>${analysisText}`;
+        } else {
+            btn.classList.add('wrong');
+            allBtns.forEach(b => { if (b.innerText.startsWith(currentAnswer)) b.classList.add('correct'); });
+            analysisDiv.innerHTML = `<strong style="color:#e74c3c">❌ 正确答案是 ${currentAnswer}</strong><br>${analysisText}`;
+        }
+        analysisDiv.style.display = 'block';
+    }
+
+    function closeAiModal() {
+        document.getElementById('aiModal').style.display = 'none';
+    }
+
+    initGalaxy();
+</script>
+
+
+
 </body>
 </html>
