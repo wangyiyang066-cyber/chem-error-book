@@ -1,35 +1,41 @@
-// js/quiz.js
+// js/quiz.js (最终完全体)
 
-// === 🚀 启动逻辑：防止错过登录信号 ===
+// === 🚀 第一部分：启动与鉴权 ===
 async function initQuiz() {
-    // 1. 获取 Supabase 客户端 (假设 main.js 已经加载了 SDK)
+    // 获取客户端 (兼容全局变量)
     const supabaseUrl = "https://ghuyiwhqdellucjxqiwj.supabase.co"; 
     const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdodXlpd2hxZGVsbHVjanhxaXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MzQwOTQsImV4cCI6MjA3MzAxMDA5NH0.toJ68-C9Kq_GmD_pGiXLH5_TK7MhawdBsdCv1FP-TVk";
-    const _client = window.supabase || supabase.createClient(supabaseUrl, supabaseKey);
+    const _client = window.supabaseClient || supabase.createClient(supabaseUrl, supabaseKey);
 
-    // 2. 主动检查：现在登录了吗？
+    // 检查登录状态
     const { data: { session } } = await _client.auth.getSession();
     
     if (session) {
-        console.log("✅ Quiz 检测到用户已登录，立即启动！");
-        window.user = session.user; // 确保全局 user 变量存在
-        // 这里的 window.supabaseClient 是 main.js 里定义的，如果没有就用 _client
-        window.supabaseClient = window.supabaseClient || _client; 
+        console.log("✅ 用户已登录:", session.user.email);
+        window.user = session.user;
+        window.supabaseClient = _client; // 确保全局可用
         startQuizSession(); 
     } else {
-        console.log("⏳ Quiz 等待用户登录事件...");
-        // 如果没登录，再乖乖排队等事件
+        console.log("⏳ 等待登录...");
+        // 监听 main.js 发出的登录事件
         document.addEventListener('userReady', () => {
-            console.log("✅ Quiz 收到登录事件，启动！");
             startQuizSession();
         });
+        // 如果实在没等到（比如直接打开链接且没登录），提示跳转
+        setTimeout(() => {
+            if (!window.user) {
+                alert("请先登录！");
+                window.location.href = "index.html";
+            }
+        }, 2000);
     }
 }
 
-// 立即执行初始化
+// 立即启动
 initQuiz();
 
-// ================= 以下是核心业务逻辑 =================
+
+// === 🚀 第二部分：核心逻辑 ===
 
 let questionSet = [];
 let currentQuestionIndex = 0;
@@ -57,27 +63,28 @@ const aiChatLog = document.getElementById('ai-chat-log');
 const quizContainer = document.getElementById('quiz-container');
 const quizCompleteContainer = document.getElementById('quiz-complete-container');
 
-// --- 1. 开始加载题目 ---
+// 1. 加载题目
 async function startQuizSession() {
     const urlParams = new URLSearchParams(window.location.search);
     const mode = urlParams.get('mode'); 
     const chapterId = urlParams.get('id');
+    const userId = window.user ? window.user.id : ''; // 获取当前用户ID
 
     try {
         questionTextEl.textContent = '正在从云端拉取题目...';
         let apiUrl = '';
         
-        // --- 路由分发 ---
         if (mode === 'review') {
             document.querySelector('h1').textContent = '错题巩固模式';
             const qId = urlParams.get('questionId');
             if(qId) apiUrl = `/.netlify/functions/get-question-by-id?id=${qId}`;
         } else if (mode === 'comprehensive') {
             document.querySelector('h1').textContent = '综合模拟考试';
-            apiUrl = `/.netlify/functions/get-comprehensive-exam`;
+            apiUrl = `/.netlify/functions/get-comprehensive-exam?userId=${userId}`;
         } else {
             if (!chapterId) { alert("未指定章节ID"); return; }
-            apiUrl = `/.netlify/functions/get-questions-by-chapter?id=${chapterId}`;
+            // 🔥 这里把 userId 传给后端，让后端帮忙查 is_done
+            apiUrl = `/.netlify/functions/get-questions-by-chapter?id=${chapterId}&userId=${userId}`;
         }
 
         const data = await fetchWithAuth(apiUrl);
@@ -85,7 +92,7 @@ async function startQuizSession() {
         let rawQuestions = Array.isArray(data) ? data : [data];
         
         if (!rawQuestions || rawQuestions.length === 0 || !rawQuestions[0]) {
-            questionTextEl.textContent = '本单元暂无题目，可能AI正在努力录入中...';
+            questionTextEl.textContent = '本单元暂无题目。';
             submitBtn.style.display = 'none';
             return;
         }
@@ -100,64 +107,65 @@ async function startQuizSession() {
     }
 }
 
-// --- 2. 渲染题目 ---
+// 2. 渲染当前题目
 function displayQuestion() {
     const q = questionSet[currentQuestionIndex];
 
-    // 重置 UI
+    // 重置界面
     feedbackContainer.style.display = 'none';
     feedbackWrongEl.style.display = 'none';
     feedbackCorrectEl.style.display = 'none';
     aiChatContainer.style.display = 'none';
     aiChatLog.innerHTML = '';
     getAiAnalysisBtn.style.display = 'inline-block';
-    
     userAnswerInput.value = '';
     userAnswerInput.disabled = false;
     submitBtn.style.display = 'block';
     submitBtn.disabled = false;
 
-    // 设置文本
-    questionNumberEl.textContent = `${currentQuestionIndex + 1} / ${questionSet.length}`;
-    questionTextEl.textContent = q.full_question.replace(/^\[question\]\d+(\.\d+)*\s*/, '');
-
-    // 渲染星星
-    const diffVal = parseFloat(q.difficulty || 0.5);
-    let starCount = Math.round(diffVal * 5) || 3; 
-    if(starCount < 1) starCount = 1;
-    if(starCount > 5) starCount = 5;
-    
-    // 使用 FontAwesome 星星
-    let starsHtml = '';
-    for(let i=0; i<5; i++) {
-        if(i < starCount) starsHtml += '<i class="fas fa-star"></i>';
-        else starsHtml += '<i class="far fa-star"></i>';
+    // --- A. 显示题号 & 状态标记 ---
+    let titleHtml = `${currentQuestionIndex + 1} / ${questionSet.length}`;
+    if (q.is_done) {
+        // 🔥 如果做过，加个绿色小标签
+        titleHtml += ' <span style="font-size:0.6em; background:#dcf8c6; color:#2e7d32; padding:2px 6px; border-radius:4px; vertical-align: middle;">已做过</span>';
     }
+    questionNumberEl.innerHTML = titleHtml;
+
+    // --- B. 显示题目文本 ---
+    const cleanText = q.full_question.replace(/^\[question\]\d+(\.\d+)*\s*/, '');
+    questionTextEl.textContent = cleanText;
+
+    // --- C. 显示难度星星 ---
+    const diffVal = parseFloat(q.difficulty || 0.5);
+    let starCount = Math.round(diffVal * 5) || 3;
+    if(starCount < 1) starCount = 1; if(starCount > 5) starCount = 5;
+    const starsHtml = '<i class="fas fa-star"></i>'.repeat(starCount) + '<i class="far fa-star"></i>'.repeat(5 - starCount);
     difficultyStarsEl.innerHTML = `难度: ${starsHtml}`;
 
-    // 渲染图片
+    // --- D. 显示图片 ---
     questionImagesContainer.innerHTML = '';
     if (q.image_urls && q.image_urls.length > 0) {
         q.image_urls.forEach(url => {
             const img = document.createElement('img');
             img.src = url;
-            img.style.cssText = "max-height: 150px; border: 1px solid #ddd; border-radius: 8px; cursor: zoom-in;";
+            img.style.cssText = "max-height: 150px; border: 1px solid #ddd; border-radius: 8px; cursor: zoom-in; margin-right: 10px;";
             img.onclick = () => window.open(url, '_blank');
             questionImagesContainer.appendChild(img);
         });
     }
 }
 
-// --- 3. 提交答案 ---
+// 3. 提交答案
 submitBtn.addEventListener('click', async () => {
     const userAnswer = userAnswerInput.value.trim();
     if (!userAnswer) { alert("请填写答案！"); return; }
 
     submitBtn.disabled = true;
     const q = questionSet[currentQuestionIndex];
+    // 简单的全等判断，实际可优化
     const isCorrect = (userAnswer === q.correct_answer.trim()); 
 
-    // A. 保存做题记录
+    // 存入数据库
     try {
         await fetchWithAuth('/.netlify/functions/save-answer', {
             method: 'POST',
@@ -165,9 +173,11 @@ submitBtn.addEventListener('click', async () => {
                 questionId: q.id, isCorrect, userAnswer, userId: window.user.id 
             })
         });
-    } catch (e) { console.error("保存记录失败", e); }
+        // 成功保存后，标记当前题目为已做 (这样如果不刷新页面，回去看也能知道做过了)
+        q.is_done = true; 
+    } catch (e) { console.error("保存失败", e); }
 
-    // B. 复习模式更新
+    // 如果是复习模式，更新算法
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('mode') === 'review') {
         const reviewId = urlParams.get('reviewId');
@@ -177,11 +187,11 @@ submitBtn.addEventListener('click', async () => {
                     method: 'POST',
                     body: JSON.stringify({ reviewId: reviewId, isCorrect: isCorrect })
                 });
-            } catch (e) { console.error("更新复习计划失败", e); }
+            } catch (e) {}
         }
     }
 
-    // C. UI 反馈
+    // 显示反馈
     userAnswerInput.disabled = true;
     submitBtn.style.display = 'none';
     feedbackContainer.style.display = 'block';
@@ -192,12 +202,12 @@ submitBtn.addEventListener('click', async () => {
         feedbackWrongEl.style.display = 'block';
         correctAnswerTextEl.textContent = q.correct_answer;
         
-        // 智能解析知识点名称
+        // 解析知识点名称
         let kpText = "综合";
         if (q.question_knowledge_point_link && q.question_knowledge_point_link.length > 0) {
             kpText = q.question_knowledge_point_link.map(link => {
                 const node = link.knowledge_nodes || link.knowledge_points;
-                return node ? (node.title || node.name) : "未知考点";
+                return node ? (node.title || node.name) : "考点";
             }).join(", ");
         }
         relatedKeypointEl.textContent = kpText;
@@ -211,7 +221,7 @@ submitBtn.addEventListener('click', async () => {
     }
 });
 
-// --- 4. 切换下一题 ---
+// 4. 下一题
 nextQuestionBtn.addEventListener('click', () => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('mode') === 'review') {
@@ -227,7 +237,7 @@ nextQuestionBtn.addEventListener('click', () => {
     }
 });
 
-// --- 5. AI 老师 (DeepSeek) ---
+// 5. AI 老师 (DeepSeek)
 getAiAnalysisBtn.addEventListener('click', async () => {
     getAiAnalysisBtn.style.display = 'none';
     aiChatContainer.style.display = 'block';
@@ -257,6 +267,7 @@ getAiAnalysisBtn.addEventListener('click', async () => {
 
         const rawText = await res.text();
         let content = "";
+        // 解析拼接流
         const regex = /"content":"(.*?)"/g;
         let match;
         while ((match = regex.exec(rawText)) !== null) {
@@ -280,7 +291,7 @@ getAiAnalysisBtn.addEventListener('click', async () => {
 
 // --- 辅助函数 ---
 async function fetchWithAuth(url, options = {}) {
-    // 再次确认 session，防止 token 过期
+    // 每次请求前都确保拿到最新的 Token
     const { data: { session } } = await window.supabaseClient.auth.getSession();
     if (!session) throw new Error("未登录");
     
