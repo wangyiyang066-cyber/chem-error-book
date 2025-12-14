@@ -2,16 +2,17 @@
 <html style="height: 100%">
 <head>
     <meta charset="utf-8">
-    <title>知识星空 - 化学错题管理系统</title>
+    <title>化学知识星空 - 错误率可视化</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
     
     <style>
+        /* 基础样式重置 */
         body { margin: 0; background-color: #0b0f19; overflow: hidden; font-family: 'Noto Sans SC', sans-serif; }
         
-        /* 顶部导航栏 */
+        /* 顶部导航栏 (玻璃拟态效果) */
         #navbar {
             position: absolute; top: 0; left: 0; right: 0; height: 60px;
             background: rgba(11, 15, 25, 0.8); backdrop-filter: blur(10px);
@@ -22,21 +23,20 @@
         .btn-back { text-decoration: none; color: rgba(255,255,255,0.8); font-size: 20px; transition: color 0.3s; }
         .btn-back:hover { color: #f1c40f; }
 
-        /* 加载动画 */
+        /* 加载动画容器 */
         #loading { 
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
             color: #fff; font-size: 16px; display: flex; flex-direction: column; align-items: center; gap: 15px; 
             z-index: 200; pointer-events: none;
         }
         
-        /* 核心：自定义悬浮卡片样式 */
+        /* Tooltip 悬浮卡片样式 */
         .star-tooltip { 
             max-width: 320px; 
-            white-space: normal; /* 允许换行 */
+            white-space: normal;
             font-family: 'Noto Sans SC', sans-serif;
         }
         .tooltip-header {
-            color: #f1c40f; 
             font-weight: bold; 
             font-size: 16px; 
             border-bottom: 1px solid rgba(255,255,255,0.2); 
@@ -49,6 +49,7 @@
             line-height: 1.6;
             text-align: justify;
         }
+        /* 标签小徽章 */
         .tag-badge {
             display: inline-block;
             padding: 2px 6px;
@@ -56,102 +57,166 @@
             font-size: 10px;
             margin-right: 5px;
             color: #fff;
+            background-color: rgba(255,255,255,0.2);
         }
-        .tag-layer1 { background-color: #e67e22; }
-        .tag-layer2 { background-color: #3498db; }
-        .tag-layer3 { background-color: #27ae60; }
     </style>
 </head>
 <body style="height: 100%">
 
     <div id="navbar">
         <div style="display: flex; align-items: center;">
-            <a href="dashboard.html" class="btn-back" title="返回"><i class="fas fa-arrow-left"></i></a>
+            <a href="index.html" class="btn-back" title="返回主页"><i class="fas fa-arrow-left"></i></a>
             <div class="nav-title"><i class="fas fa-atom"></i> 初三化学 · 知识星空</div>
         </div>
-        <div style="color: rgba(255,255,255,0.5); font-size: 12px;">Data Source: Supabase</div>
+        <div style="color: rgba(255,255,255,0.6); font-size: 12px; display: flex; gap: 15px;">
+            <span><i class="fas fa-circle" style="color: #e74c3c;"></i> 高频错题</span>
+            <span><i class="fas fa-circle" style="color: #f1c40f;"></i> 需巩固</span>
+            <span><i class="fas fa-circle" style="color: #2ecc71;"></i> 已掌握</span>
+            <span><i class="fas fa-circle" style="color: #7f8c8d;"></i> 未探索</span>
+        </div>
     </div>
 
     <div id="loading">
         <i class="fas fa-spinner fa-spin fa-2x" style="color: #3498db;"></i>
-        <span id="loading-text">正在从云端拉取化学宇宙...</span>
+        <span id="loading-text">正在从云端计算错误率数据...</span>
     </div>
 
     <div id="container" style="height: 100%"></div>
 
     <script type="text/javascript">
-        // 1. Supabase 配置
+        // 1. Supabase 配置 (使用 Anon Key，这是安全的)
         const SUPABASE_URL = "https://ghuyiwhqdellucjxqiwj.supabase.co"; 
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdodXlpd2hxZGVsbHVjanhxaXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MzQwOTQsImV4cCI6MjA3MzAxMDA5NH0.toJ68-C9Kq_GmD_pGiXLH5_TK7MhawdBsdCv1FP-TVk'; 
         
         const { createClient } = supabase;
         const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // 2. 主逻辑
+        // 2. 初始化逻辑
         async function initGalaxy() {
             try {
-                // 直接从数据库查 knowledge_nodes 表
-                // 按照 full_code 排序，保证逻辑顺序
+                console.log("正在连接 Supabase...");
+                
+                // 查询知识点表，必须包含 error_count 和 total_attempts
                 const { data: nodesData, error } = await _supabase
                     .from('knowledge_nodes')
-                    .select('*')
+                    .select('*') // 获取所有字段
                     .order('full_code', { ascending: true });
 
                 if (error) throw error;
                 
                 if (!nodesData || nodesData.length === 0) {
-                    throw new Error("数据库是空的，请先运行 Python 脚本上传数据！");
+                    throw new Error("数据库是空的，请先运行上传脚本！");
                 }
 
+                console.log(`成功获取 ${nodesData.length} 个知识点数据`);
+                
+                // 隐藏加载动画
                 document.getElementById('loading').style.display = 'none';
+                
+                // 开始渲染 ECharts 
                 renderChart(nodesData);
 
             } catch (err) {
+                console.error(err);
                 document.getElementById('loading').innerHTML = 
-                    `<i class="fas fa-exclamation-triangle" style="color:#e74c3c"></i><span>${err.message}</span>`;
+                    `<i class="fas fa-exclamation-triangle" style="color:#e74c3c"></i><span>加载失败: ${err.message}</span>`;
             }
         }
 
+        // 3. 渲染图表核心函数
         function renderChart(dbData) {
             var dom = document.getElementById('container');
-            var myChart = echarts.init(dom, 'dark');
+            var myChart = echarts.init(dom, 'dark'); // 使用暗黑主题
 
             var nodes = [];
             var links = [];
             
-            // 定义图例分类
+            // 定义层级分类
             var categories = [
-                {name: "单元 (Unit)", itemStyle: {color: '#e67e22'}},  // 橙色
-                {name: "课题 (Topic)", itemStyle: {color: '#3498db'}}, // 蓝色
-                {name: "知识点 (Point)", itemStyle: {color: '#2ecc71'}} // 绿色
+                {name: "单元 (Unit)"}, 
+                {name: "课题 (Topic)"},
+                {name: "知识点 (Point)"} 
             ];
 
-            // 转换数据格式
+            // 遍历数据，构建节点
             dbData.forEach(item => {
                 let size = 10;
                 let categoryIdx = 2;
                 let labelShow = false;
-                let layerName = "知识点";
+                let nodeColor = '#7f8c8d'; // 默认灰色
+                let borderColor = null;
+                let borderWidth = 0;
 
-                // 根据 Layer 决定节点外观
-                if (item.layer === 1) { 
-                    size = 60; categoryIdx = 0; labelShow = true; layerName = "Unit";
-                } else if (item.layer === 2) { 
-                    size = 25; categoryIdx = 1; labelShow = false; layerName = "Topic";
-                } else { 
-                    size = 12; categoryIdx = 2; labelShow = false; layerName = "Point";
+                // --- 🔥 核心：计算错误率逻辑 ---
+                const total = item.total_attempts || 0;
+                const errors = item.error_count || 0;
+                let errorRate = 0;
+                let statusText = "未探索";
+                let statusColor = "#7f8c8d";
+                
+                if (total > 0) {
+                    errorRate = (errors / total) * 100;
+                    if (errorRate > 60) {
+                        statusText = "🚨 需重点攻克";
+                        statusColor = "#e74c3c"; // 红
+                    } else if (errorRate > 30) {
+                        statusText = "⚠️ 需巩固";
+                        statusColor = "#f1c40f"; // 黄
+                    } else {
+                        statusText = "✅ 已掌握";
+                        statusColor = "#2ecc71"; // 绿
+                    }
                 }
 
-                // 添加节点
+                // --- 根据层级 (Layer) 设置样式 ---
+                if (item.layer === 1) { 
+                    // 单元节点 (最大)
+                    size = 60; categoryIdx = 0; labelShow = true;
+                    nodeColor = '#e67e22'; // 橙色
+                } else if (item.layer === 2) { 
+                    // 课题节点 (中等)
+                    size = 25; categoryIdx = 1; labelShow = false;
+                    nodeColor = '#3498db'; // 蓝色
+                } else { 
+                    // 知识点节点 (最小，根据错误率变色)
+                    size = 15; categoryIdx = 2; labelShow = false;
+                    
+                    if (total === 0) {
+                        nodeColor = '#7f8c8d'; // 灰：未做过
+                    } else if (errorRate > 60) {
+                        nodeColor = '#e74c3c'; // 红：高频错题
+                        size = 22; // 错题变大
+                        borderColor = '#fff'; // 加白边
+                        borderWidth = 2;
+                    } else if (errorRate > 30) {
+                        nodeColor = '#f1c40f'; // 黄：中等
+                    } else {
+                        nodeColor = '#2ecc71'; // 绿：掌握
+                    }
+                }
+
+                // 添加节点数据
                 nodes.push({
                     id: String(item.id),
                     name: item.title,
-                    value: item.full_code, // ECharts value 字段，这里放编号
-                    // 自定义数据，供 Tooltip 使用
+                    value: item.full_code, // 编号
+                    itemStyle: {
+                        color: nodeColor,
+                        borderColor: borderColor,
+                        borderWidth: borderWidth,
+                        // 给高频错题加红色发光特效
+                        shadowBlur: (errorRate > 60 && item.layer === 3) ? 20 : 0,
+                        shadowColor: (errorRate > 60 && item.layer === 3) ? '#e74c3c' : null
+                    },
+                    // 将统计数据存入 extra，供 Tooltip 使用
                     extra: {
                         content: item.content,
-                        layerName: layerName,
-                        layer: item.layer
+                        layer: item.layer,
+                        total: total,
+                        errors: errors,
+                        rate: errorRate.toFixed(1),
+                        status: statusText,
+                        statusColor: statusColor
                     },
                     symbolSize: size,
                     category: categoryIdx,
@@ -159,114 +224,115 @@
                     label: {
                         show: labelShow,
                         position: 'right',
-                        formatter: '{b}' // 显示名称
+                        formatter: '{b}'
                     }
                 });
 
-                // 添加连线 (如果有 parent_id)
+                // 构建连线
                 if (item.parent_id) {
                     links.push({
                         source: String(item.parent_id),
                         target: String(item.id),
                         lineStyle: {
                             color: 'source',
-                            opacity: 0.6,
-                            curveness: 0.1 // 微微弯曲，更有机
+                            opacity: 0.3,
+                            curveness: 0.1
                         }
                     });
                 }
             });
 
+            // ECharts 配置项
             var option = {
                 backgroundColor: '#0b0f19',
-                title: {
-                    text: '', // 标题栏已经有了，这里留空
-                    top: 'bottom', left: 'right'
-                },
+                // Tooltip 配置 (核心交互)
                 tooltip: {
                     trigger: 'item',
-                    enterable: true, // 允许鼠标进入 tooltip (如果需要复制文字)
-                    confine: true,   // 限制在屏幕内
-                    backgroundColor: 'rgba(30, 30, 40, 0.95)',
+                    enterable: true,
+                    confine: true,
+                    backgroundColor: 'rgba(20, 20, 30, 0.95)',
                     borderColor: '#444',
-                    padding: 15,
+                    padding: 0,
                     borderRadius: 8,
                     textStyle: { color: '#fff' },
-                    // 🔥 核心：自定义 Tooltip 内容
                     formatter: function (params) {
                         if (params.dataType === 'node') {
-                            const data = params.data;
-                            const content = data.extra.content || "暂无详细描述";
+                            const d = params.data;
+                            const ex = d.extra;
                             
-                            // 徽章颜色
-                            let badgeClass = 'tag-layer3';
-                            if(data.extra.layer === 1) badgeClass = 'tag-layer1';
-                            if(data.extra.layer === 2) badgeClass = 'tag-layer2';
+                            // 只有 Layer 3 (知识点) 显示详细统计条
+                            let statsHtml = '';
+                            if (ex.layer === 3) {
+                                statsHtml = `
+                                    <div style="margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.1);">
+                                        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px;">
+                                            <span style="color:#aaa;">总练习: ${ex.total}次</span>
+                                            <span style="color:${ex.statusColor}; font-weight:bold;">${ex.status}</span>
+                                        </div>
+                                        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px;">
+                                            <span style="color:#aaa;">错误率:</span>
+                                            <span style="color:#fff;">${ex.rate}% (${ex.errors}错)</span>
+                                        </div>
+                                        <div style="width:100%; height:4px; background:#333; border-radius:2px; overflow:hidden;">
+                                            <div style="width:${Math.min(ex.rate, 100)}%; height:100%; background:${ex.statusColor};"></div>
+                                        </div>
+                                    </div>
+                                `;
+                            }
 
                             return `
-                                <div class="star-tooltip">
-                                    <div class="tooltip-header">
-                                        <span class="tag-badge ${badgeClass}">${data.value}</span>
-                                        ${data.name}
+                                <div class="star-tooltip" style="padding:15px;">
+                                    <div class="tooltip-header" style="color:${params.color};">
+                                        <span class="tag-badge" style="background:${params.color}">${d.value}</span>
+                                        ${d.name}
                                     </div>
-                                    <div class="tooltip-body">
-                                        ${content}
+                                    <div class="tooltip-body" style="max-height:150px; overflow-y:auto; color:#ccc;">
+                                        ${ex.content || "暂无知识点描述..."}
                                     </div>
+                                    ${statsHtml}
                                 </div>
                             `;
                         }
-                        return null; // 连线不显示 tooltip
+                        return null;
                     }
                 },
-                legend: [{
-                    data: categories.map(a => a.name),
-                    bottom: 20,
-                    right: 20,
-                    textStyle: { color: '#ccc' },
-                    orient: 'vertical' 
-                }],
                 series: [{
                     type: 'graph',
-                    layout: 'force', // 力引导布局
+                    layout: 'force',
                     data: nodes,
                     links: links,
                     categories: categories,
-                    roam: true, // 允许缩放和平移
-                    label: {
-                        color: '#fff',
-                        fontSize: 12
-                    },
+                    roam: true,
+                    label: { color: '#fff' },
                     force: {
-                        repulsion: 200,    // 斥力：越大节点分得越开
-                        gravity: 0.1,      // 引力：越大节点越往中心聚
-                        edgeLength: [30, 100], // 连线长度范围
+                        repulsion: 150,    // 斥力：越大节点分得越开
+                        gravity: 0.1,      // 引力：把节点往中间拉
+                        edgeLength: [30, 80],
                         layoutAnimation: true
                     },
                     emphasis: {
-                        focus: 'adjacency', // 悬停时高亮相邻节点
-                        lineStyle: { width: 4 }
+                        focus: 'adjacency',
+                        lineStyle: { width: 3 }
                     }
                 }]
             };
 
             myChart.setOption(option);
-
-            // 监听窗口大小改变
-            window.addEventListener('resize', function() {
-                myChart.resize();
-            });
             
-            // 点击事件（预留：点击可以跳转到做题页面）
+            // 窗口大小改变时自动调整
+            window.addEventListener('resize', () => myChart.resize());
+
+            // 点击事件：点击红色节点可以跳转去练习 (可选功能)
             myChart.on('click', function (params) {
-                if (params.dataType === 'node') {
-                    console.log("点击了节点:", params.data.name);
-                    // 这里可以扩展：点击跳转到该知识点的错题列表
-                    // window.location.href = `questions.html?kp_id=${params.data.id}`;
+                if (params.dataType === 'node' && params.data.extra.layer === 3) {
+                    console.log("选中知识点:", params.data.name);
+                    // 如果你想点击跳转，可以把下面这行注释取消：
+                    // window.location.href = `quiz.html?mode=chapter&kp_id=${params.data.id}`;
                 }
             });
         }
 
-        // 启动！
+        // 启动程序
         initGalaxy();
     </script>
 </body>

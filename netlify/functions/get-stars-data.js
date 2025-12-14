@@ -27,11 +27,15 @@ exports.handler = async function(event, context) {
         // ... (此处省略验证代码，与之前一致，保留即可) ...
 
         // 🚀【关键修改】在这里增加了 'content' 字段
+        // ... 前面的代码保持不变 ...
+
+        // 🚀【关键修改】增加 error_count 和 total_attempts 字段
         const { data, error } = await supabase
             .from('knowledge_nodes')
-            .select('id, parent_id, title, layer, full_code, content'); 
+            .select('id, parent_id, title, layer, full_code, content, error_count, total_attempts'); 
 
         if (error) throw error;
+// ... 后面的代码保持不变 ...
 
         return {
             statusCode: 200,

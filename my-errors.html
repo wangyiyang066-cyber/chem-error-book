@@ -2,89 +2,74 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>我的错题</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的错题本</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-    <link rel="stylesheet" href="css/style.css">
+    
     <style>
-        .tab-controls {
-            display: flex;
-            border-bottom: 2px solid #eee;
-            margin-bottom: 20px;
-        }
-        .tab-btn {
-            padding: 10px 20px;
-            cursor: pointer;
-            border: none;
-            background-color: transparent;
-            font-size: 1.1em;
-            color: #888;
-            position: relative;
-        }
-        .tab-btn.active {
-            color: #333;
-            font-weight: bold;
-        }
-        .tab-btn.active::after {
-            content: '';
-            position: absolute;
-            bottom: -2px;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background-color: #4a90e2;
-        }
-        .tab-content {
-            display: none;
-        }
-        .tab-content.active {
-            display: block;
-        }
-        .error-item {
-            display: block;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            text-decoration: none;
-            color: inherit;
-            transition: box-shadow 0.3s;
-        }
-        .error-item:hover {
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-        }
-        /* 复习次数不同，颜色不同 */
-        .error-item[data-repetitions="0"] { border-left: 5px solid #e74c3c; } /* 第一次复习 */
-        .error-item[data-repetitions="1"] { border-left: 5px solid #f39c12; } /* 第二次复习 */
-        .error-item[data-repetitions="2"] { border-left: 5px solid #3498db; } /* 第三次复习 */
-        .error-item[data-repetitions="3"] { border-left: 5px solid #2ecc71; } /* 更多次复习 */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        h1 { text-align: center; color: #2c3e50; margin-bottom: 30px; }
+        
+        /* 标签页控制栏 */
+        .tab-controls { display: flex; border-bottom: 2px solid #eee; margin-bottom: 20px; }
+        .tab-btn { flex: 1; padding: 15px; cursor: pointer; border: none; background: none; font-size: 1.1em; color: #7f8c8d; font-weight: 500; transition: all 0.3s; border-bottom: 3px solid transparent; }
+        .tab-btn:hover { color: #3498db; background-color: #f8f9fa; }
+        .tab-btn.active { color: #3498db; border-bottom: 3px solid #3498db; font-weight: bold; }
+        
+        /* 内容区域 */
+        .tab-content { display: none; animation: fadeIn 0.3s ease; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 错题卡片 */
+        .error-item { display: block; background: #fff; border: 1px solid #e1e8ed; border-radius: 8px; padding: 20px; margin-bottom: 15px; text-decoration: none; color: inherit; transition: transform 0.2s, box-shadow 0.2s; position: relative; overflow: hidden; }
+        .error-item:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); border-color: #3498db; }
+        
+        /* 颜色条 */
+        .error-item::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; }
+        .error-item[data-repetitions="0"]::before { background-color: #e74c3c; } /* 红色：刚错 */
+        .error-item[data-repetitions="1"]::before { background-color: #f39c12; } /* 橙色：复习1次 */
+        .error-item[data-repetitions="2"]::before { background-color: #3498db; } /* 蓝色：复习2次 */
+        .error-item[data-repetitions="3"]::before { background-color: #2ecc71; } /* 绿色：熟练 */
+
+        /* 答案区域 */
+        .answer-box { background: #f8f9fa; padding: 10px; border-radius: 6px; margin-top: 10px; font-size: 0.9em; display: flex; justify-content: space-between; }
+        
+        /* 底部按钮 */
+        .btn-back { display: block; width: 100%; text-align: center; margin-top: 30px; padding: 12px; background: #95a5a6; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; }
+        .btn-back:hover { background: #7f8c8d; }
+
+        /* 加载状态 */
+        .loading-state { text-align: center; padding: 40px; color: #999; }
     </style>
 </head>
 <body>
+
     <div class="container">
-        <h1>我的错题</h1>
+        <h1><i class="fas fa-book-open"></i> 我的错题本</h1>
         
         <div class="tab-controls">
-            <button class="tab-btn active" data-tab="review-queue">需要巩固的错题</button>
-            <button class="tab-btn" data-tab="all-errors">所有错题</button>
+            <button class="tab-btn active" data-tab="review-queue">需要巩固 (<span id="review-count">0</span>)</button>
+            <button class="tab-btn" data-tab="all-errors">所有历史记录</button>
         </div>
 
         <div id="review-queue" class="tab-content active">
             <div id="review-queue-list">
-                <p>正在加载需要巩固的错题...</p>
+                <div class="loading-state"><i class="fas fa-spinner fa-spin"></i> 正在智能分析复习队列...</div>
             </div>
         </div>
 
         <div id="all-errors" class="tab-content">
             <div id="all-errors-list">
-                <p>正在加载所有错题记录...</p>
+                <div class="loading-state"><i class="fas fa-spinner fa-spin"></i> 正在拉取历史数据...</div>
             </div>
         </div>
 
-        <a href="index.html" class="btn-back" style="margin-top: 30px;">返回主页</a>
+        <a href="index.html" class="btn-back">返回学习主页</a>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="js/main.js"></script>
-    <script src="js/my-errors.js"></script> 
-</body>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    
+    <script src="js/main.js"></script> <script src="js/my-errors.js"></script> </body>
 </html>

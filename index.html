@@ -25,27 +25,36 @@
 <body>
     <div class="auth-container">
         <h1 class="project-title">基于元认知的初三化学错题管理系统</h1>
-        <div id="signup-form-container">
+        
+        <div id="signup-form-container" style="display: none;">
             <h2>注册新用户</h2>
             <form id="signup-form">
                 <div class="form-group"><label for="signup-email">邮箱地址</label><input type="email" id="signup-email" required autocomplete="username"></div>
                 <div class="form-group"><label for="signup-password">设置密码 (至少6位)</label><input type="password" id="signup-password" minlength="6" required autocomplete="new-password"></div>
-                <button type="submit" class="btn-back">立即注册</button>
+                <button type="submit" class="btn-back" style="width:100%; padding:10px; background:#3498db; color:white; border:none; border-radius:5px; cursor:pointer;">立即注册</button>
             </form>
             <p class="toggle-link">已有账户？ <a href="#" id="show-login-link">点此登录</a></p>
         </div>
-        <div id="login-form-container" style="display: none;">
+
+        <div id="login-form-container">
             <h2>用户登录</h2>
             <form id="login-form">
                 <div class="form-group"><label for="login-email">邮箱地址</label><input type="email" id="login-email" required autocomplete="username"></div>
                 <div class="form-group"><label for="login-password">输入密码</label><input type="password" id="login-password" required autocomplete="current-password"></div>
-                <button type="submit" class="btn-back">立即登录</button>
+                <button type="submit" class="btn-back" style="width:100%; padding:10px; background:#3498db; color:white; border:none; border-radius:5px; cursor:pointer;">立即登录</button>
             </form>
             <p class="toggle-link">没有账户？ <a href="#" id="show-signup-link">点此注册</a></p>
         </div>
-        <div id="message-display" class="detail-card" style="display: none; margin-top: 20px;"></div>
+
+        <div id="message-display" class="detail-card" style="display: none; margin-top: 20px; color: red;"></div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    
+    <script src="js/config.js"></script>
+    
+    <script src="js/auth-guard.js"></script>
+    
     <script src="js/auth.js"></script>
 </body>
 </html>
