@@ -88,8 +88,17 @@ async function startQuizSession() {
         }
 
         const data = await fetchWithAuth(apiUrl);
-        
+        // 插入过滤逻辑：
         let rawQuestions = Array.isArray(data) ? data : [data];
+
+        // 核心改动：只保留 shifouzuoguo 为 false 的题目
+        questionSet = rawQuestions.filter(q => q.shifouzuoguo === false);
+
+        if (questionSet.length === 0) {
+            questionTextEl.textContent = '太棒了！这一章节的题目你已经全部斩获，请换个章节试试。';
+            submitBtn.style.display = 'none';
+            return;
+        }
         
         if (!rawQuestions || rawQuestions.length === 0 || !rawQuestions[0]) {
             questionTextEl.textContent = '本单元暂无题目。';
@@ -164,7 +173,19 @@ submitBtn.addEventListener('click', async () => {
     // 2. 锁定主题界面
     submitBtn.disabled = true;
     const q = questionSet[currentQuestionIndex];
-    const isCorrect = (userAnswer === q.correct_answer.trim());
+    // --- 替换原有的 isCorrect 判定逻辑 ---
+    let isCorrect = false;
+
+    // 检查是否为大题 (datiorxiaoti 字段)
+    if (q.datiorxiaoti === true) {
+        // 进入自评与 AI 评分流程
+        showSelfAssessmentUI(q);
+        return; // 拦截，不执行下面的客观题自动判定和存档逻辑
+    }
+
+    // 如果是小题，继续原来的逻辑
+    isCorrect = (userAnswer === q.correct_answer.trim());
+    // --- 后续原有的存档和反馈逻辑保持不变 ---
 
     // 3. 保存主题记录
     try {
@@ -175,6 +196,7 @@ submitBtn.addEventListener('click', async () => {
             })
         });
         q.is_done = true;
+        q.shifouzuoguo = true;
     } catch (error) { console.error("保存记录失败:", error); }
 
     // 4. 复习模式更新
@@ -661,4 +683,69 @@ function typeWriterEffect(text) {
         }
     }
     type();
+}
+
+function showSelfAssessmentUI(q) {
+    userAnswerInput.disabled = true;
+    submitBtn.style.display = 'none';
+    feedbackContainer.style.display = 'block';
+    
+    // 强制显示反馈区域，并注入自评交互
+    feedbackWrongEl.style.display = 'block';
+    feedbackWrongEl.innerHTML = `
+        <div style="background:#fef9e7; padding:15px; border:1px solid #f39c12; border-radius:8px;">
+            <p style="color:#e67e22; font-weight:bold;"><i class="fas fa-edit"></i> 请进行自评</p>
+            <p><strong>【标准答案】：</strong><br>${marked.parse(q.correct_answer)}</p>
+            <p><strong>【题目解析】：</strong><br>${marked.parse(q.analysis || '暂无解析')}</p>
+            <hr style="border:0.5px dashed #f39c12;">
+            <p>对比你的回答，你觉得自己掌握了吗？</p>
+            <div style="display:flex; gap:10px; margin-top:10px;">
+                <button onclick="handleSelfAssessment(true, ${q.id})" class="btn-primary" style="background:#27ae60;">做对了</button>
+                <button onclick="handleSelfAssessment(false, ${q.id})" class="btn-primary" style="background:#e74c3c;">做错了</button>
+                <button onclick="startAiGrading(${JSON.stringify(q).replace(/"/g, '&quot;')})" class="btn-ai" style="display:inline-block; background:#9b59b6;">让 AI 老师评分</button>
+            </div>
+        </div>
+    `;
+}
+
+// 处理自评结果的存档
+async function handleSelfAssessment(isCorrect, questionId) {
+    try {
+        await fetchWithAuth('/.netlify/functions/save-answer', {
+            method: 'POST',
+            body: JSON.stringify({ questionId, isCorrect, userAnswer: userAnswerInput.value, userId: window.user.id })
+        });
+        alert(isCorrect ? "太棒了！继续保持。" : "已记录到错题本，稍后记得复习。");
+        // 如果做错了，自动触发原有的苏格拉底解析按钮效果（可选）
+        if (!isCorrect) { getAiAnalysisBtn.click(); }
+    } catch (e) { console.error("自评存档失败", e); }
+}
+
+async function startAiGrading(q) {
+    const studentAnswer = userAnswerInput.value;
+    aiChatContainer.style.display = 'block';
+    getAiAnalysisBtn.style.display = 'none';
+    aiChatLog.innerHTML = ''; // 清空聊天框
+    
+    addMessageToLog('ai', '老师正在仔细阅读你的步骤，请稍候...');
+
+    // 严谨的评分 Prompt 设计
+    const gradingPrompt = `你是一名资深的初中化学阅卷组长。
+请评阅以下大题：
+【题目】：${q.full_question}
+【标准答案】：${q.correct_answer}
+【学生回答】：${studentAnswer}
+
+请严格按以下步骤反馈：
+1. **得分判定**：满分以100%计，请给出得分比例。
+2. **深度诊断**：基于化学原理，指出学生答案中的亮点（如果有）和具体的错误（如：方程式未配平、漏掉沉淀符号、实验现象描述不严谨等）。
+3. **苏格拉底式引导**：不要直接给出完整正确修正，而是针对错处提一个启发式问题。
+
+请开始评阅：`;
+
+    // 重置对话上下文，让 AI 第一步执行评分任务
+    chatHistory = [{ role: "system", content: gradingPrompt }];
+    
+    // 调用你现有的 callAiAPI
+    await callAiAPI(); 
 }
