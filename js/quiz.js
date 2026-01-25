@@ -831,4 +831,4 @@ async function triggerRecommendationLogic(qId) {
         console.error("推送加载失败:", err);
         recommendationContainer.style.display = 'none';
     }
-}
+}}
