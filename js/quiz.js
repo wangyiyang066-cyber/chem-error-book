@@ -603,7 +603,27 @@ async function callAiAPI() {
         // AI 回复上屏
         typeWriterEffect(content);
 
-        // 🔥 将 AI 的回复也存入历史，形成闭环
+        // --- 🟢 新增：自动化评分监控逻辑 ---
+        try {
+            // 尝试从 AI 回复中提取 JSON
+            const jsonMatch = content.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                const result = JSON.parse(jsonMatch[0]);
+                const score = parseInt(result.score);
+                
+                // 如果分数定义了且小于 100，自动触发推送
+                if (!isNaN(score) && score < 100) {
+                    console.log("检测到评分不满 100，触发强化练习...");
+                    const q = questionSet[currentQuestionIndex];
+                    triggerRecommendationLogic(q.id);
+                }
+            }
+        } catch (e) {
+            console.log("当前回复非评分 JSON 格式，不触发推送。");
+        }
+        // --- 🟢 监控结束 ---
+
+        // 将 AI 的回复也存入历史，形成闭环
         chatHistory.push({ role: "assistant", content: content });
 
     } catch (err) {
@@ -717,23 +737,28 @@ function showSelfAssessmentUI(q) {
 
 async function handleSelfAssessment(isCorrect, questionId) {
     try {
-        // 1. 无论对错，先保存记录
-        await fetchWithAuth('/.netlify/functions/save-answer', {
+        // 1. 无论对错，先异步保存记录
+        fetchWithAuth('/.netlify/functions/save-answer', {
             method: 'POST',
             body: JSON.stringify({ questionId, isCorrect, userAnswer: userAnswerInput.value, userId: window.user.id })
         });
         
-        // 2. 如果做错了，触发推送和 AI 引导
         if (!isCorrect) {
-            alert("已记录到错题本，正在为你匹配强化题...");
-            await triggerRecommendationLogic(questionId); // 触发推送
-            getAiAnalysisBtn.click(); // 触发 AI 苏格拉底引导
+            // 2. 如果错题，先触发推送（在后台加载）
+            triggerRecommendationLogic(questionId); 
+            
+            // 3. UI 反馈
+            const feedbackArea = document.querySelector('#feedback-wrong div');
+            if(feedbackArea) feedbackArea.innerHTML += `<p style="color:#e67e22; font-size:0.9em; margin-top:10px;">已加入错题本，下方已为你匹配强化练习 ↓</p>`;
+            
+            // 4. 自动触发 AI 引导
+            getAiAnalysisBtn.click();
         } else {
             alert("太棒了！继续保持。");
-            nextQuestionBtn.click(); // 做对了直接下一题
+            nextQuestionBtn.click();
         }
     } catch (e) { 
-        console.error("自评存档失败", e); 
+        console.error("自评流程异常", e); 
     }
 }
 
@@ -753,11 +778,11 @@ async function startAiGrading(q) {
     【标准答案】：${q.correct_answer}
     【学生回答】：${studentAnswer}
 
-    请严格按以下 JSON 格式回复（不要包含任何其他文字）：
+    请严格按以下 JSON 格式回复，不要包含任何其他说明文字：
     {
-    "score": [填入0-100的数字],
+    "score": [填入0-100的纯数字],
     "analysis": "指出学生具体的错误",
-    "socratic_question": "针对错处提一个启发式问题"
+    "socratic_question": "针对错处提一个启发式提问"
     }`;
 
     // 重置对话上下文，让 AI 第一步执行评分任务
