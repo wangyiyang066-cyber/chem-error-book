@@ -92,21 +92,14 @@ async function startQuizSession() {
         let rawQuestions = Array.isArray(data) ? data : [data];
 
         // 核心改动：只保留 shifouzuoguo 为 false 的题目
-        questionSet = rawQuestions.filter(q => q.shifouzuoguo === false);
+        questionSet = rawQuestions.filter(q => q.shifouzuoguo === false || q.shifouzuoguo === null); 
 
         if (questionSet.length === 0) {
             questionTextEl.textContent = '太棒了！这一章节的题目你已经全部斩获，请换个章节试试。';
             submitBtn.style.display = 'none';
             return;
         }
-        
-        if (!rawQuestions || rawQuestions.length === 0 || !rawQuestions[0]) {
-            questionTextEl.textContent = '本单元暂无题目。';
-            submitBtn.style.display = 'none';
-            return;
-        }
-
-        questionSet = rawQuestions;
+        // 删掉原本在此处的 questionSet = rawQuestions;
         currentQuestionIndex = 0;
         displayQuestion();
 
