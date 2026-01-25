@@ -632,13 +632,32 @@ function typeWriterEffect(text) {
     div.innerHTML = `<div class="avatar">🤖</div><div class="message-content"></div>`;
     aiChatLog.appendChild(div);
     const contentBox = div.querySelector('.message-content');
+    
     let i = 0;
+    // 这里的逻辑是：先打字（纯文本），打完之后瞬间转换成漂亮的 Markdown
     function type() {
         if (i < text.length) {
             contentBox.textContent += text.charAt(i);
             i++;
             aiChatLog.scrollTop = aiChatLog.scrollHeight;
-            setTimeout(type, 20);
+            setTimeout(type, 15); // 打字速度调快了一点
+        } else {
+            // --- 打字结束，执行 Markdown 转换 ---
+            const rawValue = contentBox.textContent;
+            // 1. 使用 marked 转换 Markdown 为 HTML
+            contentBox.innerHTML = marked.parse(rawValue);
+            // 2. 使用 KaTeX 渲染其中的化学公式/数学符号
+            renderMathInElement(contentBox, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false}
+                ],
+                throwOnError: false
+            });
+            // 3. 语法高亮
+            contentBox.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+            });
         }
     }
     type();

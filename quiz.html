@@ -34,6 +34,16 @@
         .chat-message .avatar { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 10px; }
         .chat-message.ai-message .avatar { background-color: #e8f5e9; }
         .chat-message.user-message .avatar { background-color: #e3f2fd; }
+        /* 优化 Markdown 渲染后的表现 */
+        .message-content p { margin-bottom: 0.8em; }
+        .message-content ul, .message-content ol { 
+            margin-left: 25px; 
+            margin-bottom: 1em; 
+            list-style: disc; /* 确保显示列表圆点 */
+        }
+        .message-content strong { color: #e67e22; font-weight: bold; } /* 给重点词汇加个颜色 */
+        .message-content code { background: #f0f0f0; padding: 2px 4px; border-radius: 4px; }
+        .message-content pre { background: #f8f9fa; padding: 10px; border-radius: 5px; overflow-x: auto; }
         .message-content { background-color: #fff; padding: 8px 12px; border-radius: 12px; border: 1px solid #eee; max-width: 80%; white-space: pre-wrap; }
         .chat-message.user-message .message-content { background-color: #d1ecf1; border-color: #bee5eb; }
         
@@ -113,13 +123,21 @@
         <div class="trophy-icon"><i class="fas fa-trophy"></i></div>
         <h2>恭喜你！本轮练习完成！</h2>
         <p>你已经战胜了所有题目，休息一下吧。</p>
-        <button onclick="window.location.href='index.html'" class="btn-primary" style="margin-top: 20px;">
+        <button onclick="window.location.href='dashboard.html'" class="btn-primary" style="margin-top: 20px;">
             返回主页
         </button>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
 <script src="js/main.js"></script>
 <script src="js/quiz.js"></script>
 
