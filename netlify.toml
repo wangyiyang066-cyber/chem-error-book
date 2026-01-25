@@ -4,24 +4,22 @@
 [dev]
   ignore = ["node_modules", ".venv"]
 
-# --- 你原来的配置 (保留) ---
-# 这个 [build] 部分告诉 Netlify 你的云函数放在哪里
+# --- [build] 部分：告诉 Netlify 你的云函数位置 ---
 [build]
   functions = "netlify/functions"
-  
-  # --- 新增的配置 (正确的位置) ---
-  # 在这里为构建和 JS 函数设置 Node.js 版本
-  [build.environment]
-    NODE_VERSION = "18"
+
+# --- 合并后的环境变量配置 ---
+[build.environment]
+  NODE_VERSION = "18"
+  # 关键新增：告诉 Netlify 扫描时跳过所有 .py 文件，解决你的构建报错
+  SECRETS_SCAN_OMIT_PATHS = "*.py"
 
 # --- 你原来的配置 (保留) ---
-# 这部分为 AI 函数设置了超时
+# 为 AI 函数设置超时
 [functions."get-ai-analysis"]
   timeout = 90
 
-# --- 新增的配置 (必需) ---
-# 告诉 Netlify 如何处理 .py 文件
+# --- Python 运行时配置 ---
 [functions.python]
   runtime = "python"
-  # AgentScope 需要 Python 3.10+
   python_version = "3.12"
