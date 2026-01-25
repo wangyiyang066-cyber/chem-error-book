@@ -16,7 +16,16 @@ exports.handler = async function (event, context) {
       .from('answers')
       .insert([{ user_id: userId, question_id: questionId, is_correct: isCorrect, user_answer: userAnswer }]);
     if (saveError) throw saveError;
-
+    // --- 🟢 新增：标记题目为“已做过” ---
+    const { error: updateError } = await supabase
+      .from('questions')
+      .update({ shifouzuoguo: True }) // 严谨起见，直接更新为 True
+      .eq('id', questionId);
+    
+    if (updateError) {
+      console.warn("更新题目状态失败:", updateError.message);
+      // 这里不 throw error，以免影响主流程保存
+    }
     // --- 🔥 核心升级：数据统计与能力估算 ---
 
     // 2. 获取这道题的详细信息（难度、关联知识点）

@@ -162,6 +162,19 @@ function displayQuestion() {
             questionImagesContainer.appendChild(img);
         });
     }
+    let statusTag = '';
+    if (q.shifouzuoguo === true) {
+        statusTag = `<span style="background:#dcf8c6; color:#2e7d32; padding:2px 8px; border-radius:12px; font-size:0.8em; margin-left:10px; border:1px solid #2e7d32;">
+                        <i class="fas fa-check-circle"></i> 已做过
+                     </span>`;
+    } else {
+        statusTag = `<span style="background:#fff3cd; color:#856404; padding:2px 8px; border-radius:12px; font-size:0.8em; margin-left:10px; border:1px solid #856404;">
+                        <i class="far fa-circle"></i> 未做过
+                     </span>`;
+    }
+
+    // 组合显示：题号 + 状态标签
+    questionNumberEl.innerHTML = `${currentQuestionIndex + 1} / ${questionSet.length} ${statusTag}`;
 }
 
 // --- 3. 提交答案 (最终究极版：含交互式推荐题 + 双重 AI) ---
