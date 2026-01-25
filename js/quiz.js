@@ -441,19 +441,6 @@ submitBtn.addEventListener('click', async () => {
     });
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 // ==========================================
 // 5. AI 老师 (交互式对话升级版)
 // ==========================================
@@ -601,29 +588,29 @@ async function callAiAPI() {
         if (!content) content = "（老师似乎思考卡住了，请重试）";
 
         // AI 回复上屏
+        // ... 约第 604 行 ...
         typeWriterEffect(content);
 
-        // --- 🟢 新增：自动化评分监控逻辑 ---
+        // 🟢 这里是新增的“评分雷达”逻辑
         try {
-            // 尝试从 AI 回复中提取 JSON
-            const jsonMatch = content.match(/\{[\s\S]*\}/);
+            // 寻找 AI 回复中的 JSON 结构 { "score": ... }
+            const jsonMatch = content.match(/\{[\s\S]*\}/); 
             if (jsonMatch) {
                 const result = JSON.parse(jsonMatch[0]);
                 const score = parseInt(result.score);
                 
-                // 如果分数定义了且小于 100，自动触发推送
+                // 如果分数低于 100，触发推送
                 if (!isNaN(score) && score < 100) {
-                    console.log("检测到评分不满 100，触发强化练习...");
+                    console.log("检测到 AI 评分不足 100，正在推送强化题...");
                     const q = questionSet[currentQuestionIndex];
-                    triggerRecommendationLogic(q.id);
+                    triggerRecommendationLogic(q.id); // 调用你已经在 771 行写好的函数
                 }
             }
         } catch (e) {
-            console.log("当前回复非评分 JSON 格式，不触发推送。");
+            console.log("当前 AI 回复不是评分格式，不触发推送。");
         }
-        // --- 🟢 监控结束 ---
 
-        // 将 AI 的回复也存入历史，形成闭环
+        // 下面是原有的代码（约第 607 行）
         chatHistory.push({ role: "assistant", content: content });
 
     } catch (err) {
@@ -637,10 +624,6 @@ async function callAiAPI() {
         setTimeout(() => chatUserInput.focus(), 100);
     }
 }
-
-
-
-
 
 
 
@@ -736,30 +719,21 @@ function showSelfAssessmentUI(q) {
 
 
 async function handleSelfAssessment(isCorrect, questionId) {
-    try {
-        // 1. 无论对错，先异步保存记录
-        fetchWithAuth('/.netlify/functions/save-answer', {
-            method: 'POST',
-            body: JSON.stringify({ questionId, isCorrect, userAnswer: userAnswerInput.value, userId: window.user.id })
-        });
+    // 异步保存记录
+    fetchWithAuth('/.netlify/functions/save-answer', {
+        method: 'POST',
+        body: JSON.stringify({ questionId, isCorrect, userAnswer: userAnswerInput.value, userId: window.user.id })
+    });
+
+    if (!isCorrect) {
+        // 🟢 核心修改：如果是错题，立即触发推送
+        triggerRecommendationLogic(questionId); 
         
-        if (!isCorrect) {
-            // 2. 如果错题，先触发推送（在后台加载）
-            triggerRecommendationLogic(questionId); 
-            
-            // 3. UI 反馈
-            const feedbackArea = document.querySelector('#feedback-wrong div');
-            if(feedbackArea) feedbackArea.innerHTML += `<p style="color:#e67e22; font-size:0.9em; margin-top:10px;">已加入错题本，下方已为你匹配强化练习 ↓</p>`;
-            
-            // 4. 自动触发 AI 引导
-            getAiAnalysisBtn.click();
-        } else {
-            alert("太棒了！继续保持。");
-            nextQuestionBtn.click();
-        }
-    } catch (e) { 
-        console.error("自评流程异常", e); 
-    }
+        alert("已记录到错题本，下方已为你匹配强化题。正在开启 AI 解析...");
+        getAiAnalysisBtn.click(); // 自动点开 AI 老师
+    } else {
+        alert("太棒了！继续保持。");
+        nextQuestionBtn.click();
 }
 
 async function startAiGrading(q) {
@@ -772,19 +746,18 @@ async function startAiGrading(q) {
 
     // 严谨的评分 Prompt 设计
     // 修改第 544 行起的 gradingPrompt
-    const gradingPrompt = `你是一名资深的初中化学阅卷组长。
-    请评阅以下大题并按要求回复。
+// ... 约第 753 行 ...
+    const gradingPrompt = `你是一名化学老师。请评阅以下大题并给出 0-100 的评分。
     【题目】：${q.full_question}
     【标准答案】：${q.correct_answer}
     【学生回答】：${studentAnswer}
 
-    请严格按以下 JSON 格式回复，不要包含任何其他说明文字：
+    请严格按以下 JSON 格式回复，严禁包含任何多余文字：
     {
-    "score": [填入0-100的纯数字],
-    "analysis": "指出学生具体的错误",
-    "socratic_question": "针对错处提一个启发式提问"
+    "score": [填入纯数字分数],
+    "analysis": "简要分析",
+    "socratic_question": "启发式提问"
     }`;
-
     // 重置对话上下文，让 AI 第一步执行评分任务
     chatHistory = [{ role: "system", content: gradingPrompt }];
     
@@ -818,6 +791,44 @@ async function triggerRecommendationLogic(qId) {
         }
     } catch (err) {
         console.error("推送逻辑异常:", err);
+        recommendationContainer.style.display = 'none';
+    }
+}
+
+
+// === 搬运自选择题的通用推送逻辑 ===
+async function triggerRecommendationLogic(qId) {
+    const recommendationContainer = document.getElementById('recommendation-container');
+    const recommendationText = document.getElementById('recommendation-text');
+    
+    // 1. 显示加载状态
+    recommendationContainer.style.display = 'block';
+    recommendationText.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> 正在为你匹配同类强化练习题...</p>';
+
+    try {
+        // 2. 调用你原本选择题用的同一个云函数
+        const response = await fetch('/.netlify/functions/recommend-question', {
+            method: 'POST',
+            body: JSON.stringify({ questionId: qId })
+        });
+        const recData = await response.json();
+
+        // 3. 渲染推荐题目内容（保持和你选择题一致的样式）
+        if (recData && recData.id) {
+            recommendationText.innerHTML = `
+                <div style="background: #fff3e0; padding: 15px; border-left: 5px solid #ff9800; border-radius: 8px; margin-top: 15px;">
+                    <strong style="color: #e67e22;"><i class="fas fa-lightbulb"></i> 针对性强化练习：</strong>
+                    <p style="margin: 10px 0; font-size: 0.95em; line-height:1.6;">${recData.content}</p>
+                    <button class="btn-primary" style="width: 100%; padding: 8px;" 
+                            onclick="window.location.href='quiz.html?id=${recData.id}'">
+                        立即开始练习
+                    </button>
+                </div>`;
+        } else {
+            recommendationContainer.style.display = 'none';
+        }
+    } catch (err) {
+        console.error("推送加载失败:", err);
         recommendationContainer.style.display = 'none';
     }
 }
