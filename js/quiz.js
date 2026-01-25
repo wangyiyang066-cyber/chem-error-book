@@ -1,5 +1,7 @@
 // js/quiz.js (最终完全体)
-
+// 获取 URL 参数，判断是否为复习模式
+const urlParams = new URLSearchParams(window.location.search);
+const isReviewMode = urlParams.get('mode') === 'review';
 // === 🚀 第一部分：启动与鉴权 ===
 async function initQuiz() {
     // 获取客户端 (兼容全局变量)
@@ -74,6 +76,7 @@ async function startQuizSession() {
         questionTextEl.textContent = '正在从云端拉取题目...';
         let apiUrl = '';
         
+        // --- 原有模式判断逻辑：保持不变 ---
         if (mode === 'review') {
             document.querySelector('h1').textContent = '错题巩固模式';
             const qId = urlParams.get('questionId');
@@ -88,18 +91,30 @@ async function startQuizSession() {
         }
 
         const data = await fetchWithAuth(apiUrl);
-        // 插入过滤逻辑：
         let rawQuestions = Array.isArray(data) ? data : [data];
 
-        // 核心改动：只保留 shifouzuoguo 为 false 的题目
-        questionSet = rawQuestions.filter(q => q.shifouzuoguo === false || q.shifouzuoguo === null); 
+        // --- 核心改动逻辑：智能过滤 ---
+        // 逻辑：如果是复习模式或综合模拟模式，不过滤；如果是普通刷章节模式，只保留没做过的。
+        if (mode === 'review' || mode === 'comprehensive') {
+            questionSet = rawQuestions; 
+            console.log("当前处于复习或模拟模式，已解除重复题限制。");
+        } else {
+            // 普通模式：只保留 shifouzuoguo 不为 true 的题目
+            questionSet = rawQuestions.filter(q => q.shifouzuoguo === false || q.shifouzuoguo === null); 
+        }
 
         if (questionSet.length === 0) {
-            questionTextEl.textContent = '太棒了！这一章节的题目你已经全部斩获，请换个章节试试。';
+            // 根据模式给出不同的提示
+            if (mode !== 'review') {
+                questionTextEl.textContent = '太棒了！这一章节的题目你已经全部斩获，请换个章节试试。';
+            } else {
+                questionTextEl.textContent = '该模式下暂无题目。';
+            }
             submitBtn.style.display = 'none';
             return;
         }
-        // 删掉原本在此处的 questionSet = rawQuestions;
+
+        // 确保不会被 rawQuestions 覆盖
         currentQuestionIndex = 0;
         displayQuestion();
 
@@ -716,119 +731,69 @@ function showSelfAssessmentUI(q) {
         </div>
     `;
 }
-
-
+// --- 修复后的自评逻辑 ---
 async function handleSelfAssessment(isCorrect, questionId) {
-    // 异步保存记录
+    // 保存记录
     fetchWithAuth('/.netlify/functions/save-answer', {
         method: 'POST',
         body: JSON.stringify({ questionId, isCorrect, userAnswer: userAnswerInput.value, userId: window.user.id })
     });
 
     if (!isCorrect) {
-        // 🟢 核心修改：如果是错题，立即触发推送
+        // 🟢 触发推送
         triggerRecommendationLogic(questionId); 
-        
         alert("已记录到错题本，下方已为你匹配强化题。正在开启 AI 解析...");
-        getAiAnalysisBtn.click(); // 自动点开 AI 老师
+        getAiAnalysisBtn.click(); 
     } else {
         alert("太棒了！继续保持。");
         nextQuestionBtn.click();
-}
+    }
+} // 闭合 handleSelfAssessment
 
+// --- 修复后的评分逻辑 ---
 async function startAiGrading(q) {
     const studentAnswer = userAnswerInput.value;
     aiChatContainer.style.display = 'block';
     getAiAnalysisBtn.style.display = 'none';
-    // aiChatLog.innerHTML = ''; // 清空聊天框
-    
     addMessageToLog('ai', '老师正在仔细阅读你的步骤，请稍候...');
 
-    // 严谨的评分 Prompt 设计
-    // 修改第 544 行起的 gradingPrompt
-// ... 约第 753 行 ...
     const gradingPrompt = `你是一名化学老师。请评阅以下大题并给出 0-100 的评分。
-    【题目】：${q.full_question}
-    【标准答案】：${q.correct_answer}
-    【学生回答】：${studentAnswer}
-
     请严格按以下 JSON 格式回复，严禁包含任何多余文字：
-    {
-    "score": [填入纯数字分数],
-    "analysis": "简要分析",
-    "socratic_question": "启发式提问"
-    }`;
-    // 重置对话上下文，让 AI 第一步执行评分任务
+    { "score": 纯数字分数, "analysis": "简要分析", "socratic_question": "启发式提问" }
+    【题目】：${q.full_question}
+    【学生回答】：${studentAnswer}`;
+
     chatHistory = [{ role: "system", content: gradingPrompt }];
-    
-    // 调用你现有的 callAiAPI
     await callAiAPI(); 
-}
+} // 闭合 startAiGrading
 
-// === 核心：提取出的通用推送函数 ===
+// --- 修复后的通用推送函数 ---
 async function triggerRecommendationLogic(qId) {
     const recommendationContainer = document.getElementById('recommendation-container');
     const recommendationText = document.getElementById('recommendation-text');
     
-    recommendationContainer.style.display = 'block';
-    recommendationText.innerHTML = '<p><i class="fas fa-robot"></i> 正在根据评分结果，为你匹配强化练习...</p>';
-
-    try {
-        const response = await fetch('/.netlify/functions/recommend-question', {
-            method: 'POST',
-            body: JSON.stringify({ questionId: qId })
-        });
-        const recData = await response.json();
-
-        if (recData && recData.id) {
-            recommendationText.innerHTML = `
-                <div style="background: #fff3e0; padding: 12px; border-left: 4px solid #ff9800; border-radius: 4px;">
-                    <strong style="color: #e67e22;">💡 强化练习推荐：</strong><br>
-                    <div style="margin: 8px 0; font-size: 0.95em;">${recData.content}</div>
-                    <button class="btn-primary" style="padding: 4px 12px; font-size: 0.85em;" 
-                            onclick="window.location.href='quiz.html?id=${recData.id}'">点击练习</button>
-                </div>`;
-        }
-    } catch (err) {
-        console.error("推送逻辑异常:", err);
-        recommendationContainer.style.display = 'none';
-    }
-}
-
-
-// === 搬运自选择题的通用推送逻辑 ===
-async function triggerRecommendationLogic(qId) {
-    const recommendationContainer = document.getElementById('recommendation-container');
-    const recommendationText = document.getElementById('recommendation-text');
-    
-    // 1. 显示加载状态
     recommendationContainer.style.display = 'block';
     recommendationText.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> 正在为你匹配同类强化练习题...</p>';
 
     try {
-        // 2. 调用你原本选择题用的同一个云函数
         const response = await fetch('/.netlify/functions/recommend-question', {
             method: 'POST',
             body: JSON.stringify({ questionId: qId })
         });
         const recData = await response.json();
 
-        // 3. 渲染推荐题目内容（保持和你选择题一致的样式）
         if (recData && recData.id) {
             recommendationText.innerHTML = `
                 <div style="background: #fff3e0; padding: 15px; border-left: 5px solid #ff9800; border-radius: 8px; margin-top: 15px;">
                     <strong style="color: #e67e22;"><i class="fas fa-lightbulb"></i> 针对性强化练习：</strong>
-                    <p style="margin: 10px 0; font-size: 0.95em; line-height:1.6;">${recData.content}</p>
-                    <button class="btn-primary" style="width: 100%; padding: 8px;" 
+                    <p style="margin: 10px 0;">${recData.content}</p>
+                    <button class="btn-primary" style="width:100%" 
                             onclick="window.location.href='quiz.html?id=${recData.id}'">
                         立即开始练习
                     </button>
                 </div>`;
-        } else {
-            recommendationContainer.style.display = 'none';
         }
     } catch (err) {
         console.error("推送加载失败:", err);
-        recommendationContainer.style.display = 'none';
     }
-}}
+} // 闭合 triggerRecommendationLogic
