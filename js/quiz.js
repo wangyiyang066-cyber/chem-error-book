@@ -714,44 +714,85 @@ function showSelfAssessmentUI(q) {
     `;
 }
 
-// 处理自评结果的存档
+
 async function handleSelfAssessment(isCorrect, questionId) {
     try {
+        // 1. 无论对错，先保存记录
         await fetchWithAuth('/.netlify/functions/save-answer', {
             method: 'POST',
             body: JSON.stringify({ questionId, isCorrect, userAnswer: userAnswerInput.value, userId: window.user.id })
         });
-        alert(isCorrect ? "太棒了！继续保持。" : "已记录到错题本，稍后记得复习。");
-        // 如果做错了，自动触发原有的苏格拉底解析按钮效果（可选）
-        if (!isCorrect) { getAiAnalysisBtn.click(); }
-    } catch (e) { console.error("自评存档失败", e); }
+        
+        // 2. 如果做错了，触发推送和 AI 引导
+        if (!isCorrect) {
+            alert("已记录到错题本，正在为你匹配强化题...");
+            await triggerRecommendationLogic(questionId); // 触发推送
+            getAiAnalysisBtn.click(); // 触发 AI 苏格拉底引导
+        } else {
+            alert("太棒了！继续保持。");
+            nextQuestionBtn.click(); // 做对了直接下一题
+        }
+    } catch (e) { 
+        console.error("自评存档失败", e); 
+    }
 }
 
 async function startAiGrading(q) {
     const studentAnswer = userAnswerInput.value;
     aiChatContainer.style.display = 'block';
     getAiAnalysisBtn.style.display = 'none';
-    aiChatLog.innerHTML = ''; // 清空聊天框
+    // aiChatLog.innerHTML = ''; // 清空聊天框
     
     addMessageToLog('ai', '老师正在仔细阅读你的步骤，请稍候...');
 
     // 严谨的评分 Prompt 设计
+    // 修改第 544 行起的 gradingPrompt
     const gradingPrompt = `你是一名资深的初中化学阅卷组长。
-请评阅以下大题：
-【题目】：${q.full_question}
-【标准答案】：${q.correct_answer}
-【学生回答】：${studentAnswer}
+    请评阅以下大题并按要求回复。
+    【题目】：${q.full_question}
+    【标准答案】：${q.correct_answer}
+    【学生回答】：${studentAnswer}
 
-请严格按以下步骤反馈：
-1. **得分判定**：满分以100%计，请给出得分比例。
-2. **深度诊断**：基于化学原理，指出学生答案中的亮点（如果有）和具体的错误（如：方程式未配平、漏掉沉淀符号、实验现象描述不严谨等）。
-3. **苏格拉底式引导**：不要直接给出完整正确修正，而是针对错处提一个启发式问题。
-
-请开始评阅：`;
+    请严格按以下 JSON 格式回复（不要包含任何其他文字）：
+    {
+    "score": [填入0-100的数字],
+    "analysis": "指出学生具体的错误",
+    "socratic_question": "针对错处提一个启发式问题"
+    }`;
 
     // 重置对话上下文，让 AI 第一步执行评分任务
     chatHistory = [{ role: "system", content: gradingPrompt }];
     
     // 调用你现有的 callAiAPI
     await callAiAPI(); 
+}
+
+// === 核心：提取出的通用推送函数 ===
+async function triggerRecommendationLogic(qId) {
+    const recommendationContainer = document.getElementById('recommendation-container');
+    const recommendationText = document.getElementById('recommendation-text');
+    
+    recommendationContainer.style.display = 'block';
+    recommendationText.innerHTML = '<p><i class="fas fa-robot"></i> 正在根据评分结果，为你匹配强化练习...</p>';
+
+    try {
+        const response = await fetch('/.netlify/functions/recommend-question', {
+            method: 'POST',
+            body: JSON.stringify({ questionId: qId })
+        });
+        const recData = await response.json();
+
+        if (recData && recData.id) {
+            recommendationText.innerHTML = `
+                <div style="background: #fff3e0; padding: 12px; border-left: 4px solid #ff9800; border-radius: 4px;">
+                    <strong style="color: #e67e22;">💡 强化练习推荐：</strong><br>
+                    <div style="margin: 8px 0; font-size: 0.95em;">${recData.content}</div>
+                    <button class="btn-primary" style="padding: 4px 12px; font-size: 0.85em;" 
+                            onclick="window.location.href='quiz.html?id=${recData.id}'">点击练习</button>
+                </div>`;
+        }
+    } catch (err) {
+        console.error("推送逻辑异常:", err);
+        recommendationContainer.style.display = 'none';
+    }
 }
