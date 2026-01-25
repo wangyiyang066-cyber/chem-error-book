@@ -19,7 +19,7 @@ exports.handler = async function (event, context) {
     // --- 🟢 新增：标记题目为“已做过” ---
     const { error: updateError } = await supabase
       .from('questions')
-      .update({ shifouzuoguo: True }) // 严谨起见，直接更新为 True
+      .update({ shifouzuoguo: true }) // 严谨起见，直接更新为 True
       .eq('id', questionId);
     
     if (updateError) {
