@@ -846,63 +846,239 @@ function renderActionPanel(q, userAnswer) {
 
 // A. 保存并处理自评结果
 async function saveAndProcess(isCorrect, qId) {
+    const userAnswer = userAnswerInput.value; // 获取学生输入的答案
     try {
         await fetchWithAuth('/.netlify/functions/save-answer', {
             method: 'POST',
             body: JSON.stringify({ 
                 questionId: qId, 
                 isCorrect: isCorrect, 
-                userAnswer: userAnswerInput.value, 
+                userAnswer: userAnswer, 
                 userId: window.user.id 
             })
         });
         
-        if (isCorrect) {
-            alert("太棒了！点击‘下一题’继续挑战。");
-        } else {
-            alert("已加入错题本，建议尝试‘AI 老师’或‘推送同类题’。");
-        }
+        // 更新本地状态，标记这题已经做过了
+        const q = questionSet[currentQuestionIndex];
+        q.shifouzuoguo = true;
+        
+        alert(isCorrect ? "记录成功！继续保持。" : "已计入错题本，建议点击下方按钮进行强化。");
     } catch (e) {
         console.error("记录存档失败:", e);
     }
 }
 
-// B. 触发 AI 老师解析
-function triggerAiTeacher() {
-    // 直接模拟点击原有的 AI 分析按钮
-    getAiAnalysisBtn.click();
-}
-
-// C. 手动触发推送逻辑
 async function triggerManualPush(qId) {
-    const loadingArea = document.getElementById('push-loading-area');
-    loadingArea.style.display = 'block';
-    loadingArea.innerHTML = '<p style="color: #666; text-align: center;"><i class="fas fa-spinner fa-spin"></i> 正在根据此题考点匹配强化题目...</p>';
+    const area = document.getElementById('push-loading-area');
+    const btn = document.getElementById('manual-rec-btn');
+    if (!area) return;
+
+    area.style.display = 'block';
+    area.innerHTML = '<p style="text-align: center;"><i class="fas fa-spinner fa-spin"></i> 正在精准匹配强化题...</p>';
+    if (btn) btn.disabled = true;
 
     try {
-        // 复用你原本的推荐题接口
         const response = await fetch('/.netlify/functions/recommend-question', {
             method: 'POST',
-            body: JSON.stringify({ questionId: qId })
+            body: JSON.stringify({ 
+                wrongQuestionId: qId, // 确保与后端对应
+                userId: window.user ? window.user.id : null 
+            })
         });
-        const recData = await response.json();
 
-        if (recData && recData.id) {
-            // 实现“接着推送”：将新题目作为 review 模式加载，这样加载后依然有这套自评逻辑
-            loadingArea.innerHTML = `
-                <div style="background: #fff3e0; padding: 15px; border-left: 5px solid #ff9800; border-radius: 8px; margin-top: 10px;">
-                    <p style="margin-bottom: 10px;"><strong><i class="fas fa-star"></i> 推荐题已准备好：</strong></p>
-                    <p style="font-size: 0.95em;">${recData.content || '考点强化练习'}</p>
-                    <button class="btn-primary" style="width:100%; margin-top: 10px;" 
-                            onclick="window.location.href='quiz.html?mode=review&questionId=${recData.id}'">
-                        立即开始强化
-                    </button>
-                </div>`;
-        } else {
-            loadingArea.innerHTML = '<p style="text-align: center; color: #888;">暂时没找到更多同类题目了。</p>';
+        const recData = await response.json();
+        
+        if (!recData || !recData.id) {
+            area.innerHTML = '<p style="text-align: center; color: #888; padding:10px;">暂时没在题库中找到更多同类新题。</p>';
+            return;
         }
+
+        // --- 核心：强化题独立的 UI 块 ---
+        area.innerHTML = `
+            <div id="mini-quiz-station" style="background: #f0faff; border: 2px solid #00b894; padding: 20px; border-radius: 12px; margin-top: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                <div style="color: #00b894; font-weight: bold; margin-bottom: 12px; font-size: 1.1em;">
+                    <i class="fas fa-rocket"></i> 强化训练题 (独立练习区)
+                </div>
+                <div style="font-size: 1.05em; color: #2d3436; margin-bottom: 15px; line-height: 1.6;">
+                    ${marked.parse(recData.full_question || recData.content)}
+                </div>
+                
+                <div id="mini-interaction">
+                    <input type="text" id="mini-answer-input" placeholder="输入这道强化题的答案..." 
+                        style="width: 100%; padding: 12px; border: 2px solid #dfe6e9; border-radius: 8px; margin-bottom: 15px;">
+                    <div style="display: flex; gap: 10px;">
+                        <button id="mini-submit-btn" class="btn-primary" style="flex: 2; background: #00b894; border:none; padding: 10px;">
+                            提交强化题
+                        </button>
+                        <button id="mini-ai-btn" class="btn-ai" style="flex: 1; padding: 10px; border-radius: 8px; display: block;">
+                            <i class="fas fa-robot"></i> AI 解析
+                        </button>
+                    </div>
+                </div>
+
+                <div id="mini-feedback" style="display:none; margin-top: 15px; border-top: 1px dashed #00b894; padding-top: 15px;"></div>
+            </div>
+        `;
+
+        // 绑定逻辑
+        bindMiniQuizLogic(recData);
+
     } catch (err) {
-        console.error("推送异常:", err);
-        loadingArea.innerHTML = '<p style="color: red;">推送失败，请稍后重试。</p>';
+        console.error("推送失败:", err);
+        area.innerHTML = `<p style="color: red; text-align: center;">推送失败，请重试。</p>`;
+    } finally {
+        if (btn) btn.disabled = false;
     }
+}
+
+// A. 保存自评结果
+async function saveAndProcess(isCorrect, qId) {
+    const userAnswer = userAnswerInput.value;
+    try {
+        await fetchWithAuth('/.netlify/functions/save-answer', {
+            method: 'POST',
+            body: JSON.stringify({ 
+                questionId: qId, 
+                isCorrect: isCorrect, 
+                userAnswer: userAnswer, 
+                userId: window.user.id 
+            })
+        });
+        
+        const q = questionSet[currentQuestionIndex];
+        q.shifouzuoguo = true;
+        
+        alert(isCorrect ? "记录成功！继续保持。" : "已计入错题本，建议尝试 AI 讲解或推送同类题。");
+    } catch (e) {
+        console.error("记录存档失败:", e);
+    }
+}
+
+// B. 修复：补充缺失的 triggerAiTeacher 函数
+function triggerAiTeacher() {
+    // 模拟点击原始隐藏的 AI 按钮来开启苏格拉底对话
+    if (getAiAnalysisBtn) {
+        getAiAnalysisBtn.click();
+    } else {
+        console.error("找不到 getAiAnalysisBtn 按钮");
+    }
+}
+function bindMiniQuizLogic(recData) {
+    const miniSubmitBtn = document.getElementById('mini-submit-btn');
+    const miniAiBtn = document.getElementById('mini-ai-btn');
+    const miniInput = document.getElementById('mini-answer-input');
+    const miniFeedback = document.getElementById('mini-feedback');
+
+    // --- A. 处理强化题 AI 解析 (不干扰原题) ---
+    miniAiBtn.onclick = () => {
+        aiChatContainer.style.display = 'block';
+        aiChatLog.innerHTML = ''; // 清空聊天记录，专注本题
+        
+        // 专门针对这道强化题的 Prompt
+        const miniPrompt = `
+你是一位化学老师。学生正在做一道【强化练习题】。
+【题目内容】${recData.full_question}
+【正确答案】${recData.correct_answer}
+【解析内容】${recData.analysis || '暂无'}
+【学生当前输入】${miniInput.value || '尚未输入'}
+
+请针对这道【强化练习题】开启苏格拉底式引导。
+1. 询问学生对这道新题的解题思路。
+2. 引导他关注本题与刚才那道原题的异同点。
+3. 200字以内，保持亲切和提问风格。
+        `;
+        
+        chatHistory = [{ role: "system", content: miniPrompt }];
+        chatHistory.push({ role: "user", content: "老师，这道强化题我需要一点启发。" });
+        callAiAPI();
+        
+        aiChatContainer.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    // --- B. 处理强化题提交 ---
+    miniSubmitBtn.onclick = async () => {
+        const val = miniInput.value.trim();
+        if (!val) { alert("请输入答案！"); return; }
+
+        miniInput.disabled = true;
+        miniSubmitBtn.disabled = true;
+
+        const isCorrect = (val.toUpperCase() === recData.correct_answer.trim().toUpperCase());
+
+        // 存档 (静默保存)
+        fetchWithAuth('/.netlify/functions/save-answer', {
+            method: 'POST',
+            body: JSON.stringify({ questionId: recData.id, isCorrect, userAnswer: val, userId: window.user.id })
+        });
+
+        // 显示结果
+        miniFeedback.style.display = 'block';
+        miniFeedback.innerHTML = `
+            <p style="font-weight:bold; color: ${isCorrect ? '#27ae60' : '#e74c3c'};">
+                ${isCorrect ? '✅ 回答正确！强化成功！' : '❌ 还没对，已加入错题本。'}
+            </p>
+            <div style="background:#fff; padding:12px; border-radius:8px; font-size:0.9em; margin-top:10px; border: 1px solid #eee;">
+                <strong>参考答案：</strong> ${recData.correct_answer}
+                <div style="margin-top:8px;"><strong>解析：</strong> ${marked.parse(recData.analysis || '暂无解析')}</div>
+            </div>
+            <button onclick="triggerManualPush(${recData.id})" class="btn-secondary" style="width:100%; margin-top:15px; background:#f39c12; color:white; border:none; padding:10px; border-radius:8px; cursor:pointer;">
+                <i class="fas fa-forward"></i> 还没透彻？继续推送下一道
+            </button>
+        `;
+    };
+}
+async function saveAndProcess(isCorrect, qId) {
+    const userAnswer = userAnswerInput.value;
+    try {
+        // 1. 记录答题历史（这是你原本就有的逻辑）
+        await fetchWithAuth('/.netlify/functions/save-answer', {
+            method: 'POST',
+            body: JSON.stringify({ 
+                questionId: qId, 
+                isCorrect: isCorrect, 
+                userAnswer: userAnswer, 
+                userId: window.user.id 
+            })
+        });
+
+        // 2. 🔥 核心：如果是复习模式，调用你提供的 update-review-status
+        if (isReviewMode) {
+            // 注意：复习模式下，URL 通常会带一个 reviewId 参数
+            const reviewId = new URLSearchParams(window.location.search).get('reviewId');
+            
+            if (reviewId) {
+                console.log("正在更新复习状态，ID:", reviewId);
+                await fetchWithAuth('/.netlify/functions/update-review-status', {
+                    method: 'POST',
+                    body: JSON.stringify({ 
+                        reviewId: reviewId, 
+                        isCorrect: isCorrect 
+                    })
+                });
+            } else {
+                console.warn("未能在 URL 中找到 reviewId，无法更新复习进度");
+            }
+        }
+        
+        const q = questionSet[currentQuestionIndex];
+        q.shifouzuoguo = true;
+        
+        // 提示语修改
+        const msg = isCorrect ? "掌握得不错！这道题已移至下一阶段复习。" : "没关系，这道题会留在今日复习任务中。";
+        alert(msg);
+
+    } catch (e) {
+        console.error("存档或更新复习状态失败:", e);
+    }
+}
+
+// === 🚀 修复全局调用问题 ===
+// 显式暴露函数，确保 HTML 字符串中的 onclick 能找到它们
+window.triggerAiTeacher = triggerAiTeacher;
+window.saveAndProcess = saveAndProcess;
+window.triggerManualPush = triggerManualPush;
+
+// 如果你的代码里还有其他在 HTML 字符串中使用的函数，也要在这里写出来
+if (typeof startAiGrading !== 'undefined') {
+    window.startAiGrading = startAiGrading;
 }
