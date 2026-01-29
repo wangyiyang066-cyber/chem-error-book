@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>课程作业 - 化学错题管理系统</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .homework-container {
+            max-width: 900px;
+            margin: 40px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .page-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .homework-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        .homework-card {
+            background: #fff;
+            border: 2px solid #f0f0f0;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: inherit;
+        }
+        .homework-card:hover {
+            border-color: #3498db;
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.2);
+        }
+        .homework-card .lesson-num {
+            font-size: 0.8em;
+            color: #95a5a6;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .homework-card .lesson-title {
+            font-size: 1.2em;
+            font-weight: 700;
+            color: #2c3e50;
+            margin: 5px 0;
+        }
+        .homework-card .status-icon {
+            font-size: 2em;
+            color: #3498db;
+            margin-bottom: 5px;
+        }
+        /* 也可以给完成的卡片加个样式 */
+        .homework-card.locked {
+            opacity: 0.6;
+            cursor: not-allowed;
+            background: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div style="margin-top: 20px;">
+            <a href="dashboard.html" class="btn-back"><i class="fas fa-arrow-left"></i> 返回仪表盘</a>
+        </div>
+
+        <div class="homework-container">
+            <div class="page-header">
+                <h2><i class="fas fa-tasks"></i> 8次化学课程任务</h2>
+                <p>点击下方卡片，开始对应的课后练习</p>
+            </div>
+
+            <div class="homework-grid" id="homeworkGrid">
+                <a href="homework-quiz.html?lessonId=1" class="homework-card">
+                    <span class="lesson-num">Lesson 01</span>
+                    <div class="status-icon"><i class="fas fa-flask"></i></div>
+                    <div class="lesson-title">走进化学世界</div>
+                </a>
+                
+                </div>
+        </div>
+    </div>
+
+    <script src="js/homework-calendar.js"></script>
+</body>
+</html>

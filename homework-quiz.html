@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>化学答题挑战</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* 这里加一些基础样式，防止 css/style.css 没加载时页面太丑 */
+        .question-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; color: #666; }
+        .difficulty-stars { color: #f1c40f; }
+        .question-text { font-size: 1.2em; margin-bottom: 20px; line-height: 1.6; }
+        .interaction-area { display: flex; gap: 10px; margin-bottom: 20px; }
+        input[type="text"] { flex: 1; padding: 10px; border: 2px solid #ddd; border-radius: 5px; font-size: 1em; }
+        .btn-primary { background-color: #4a90e2; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 1em; }
+        .btn-primary:hover { background-color: #357abd; }
+        .btn-secondary { background-color: #95a5a6; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+        .btn-ai { background-color: #9b59b6; color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; display: none; margin-top: 10px; }
+        
+        /* 反馈区域样式 */
+        #feedback-container { display: none; margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 8px; }
+        .feedback-correct { color: #27ae60; display: none; font-weight: bold; }
+        .feedback-wrong { color: #c0392b; display: none; }
+        
+        /* 推荐题区域 */
+        #recommendation-container { display: none; margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ccc; }
+        
+        /* AI 聊天框样式 */
+        #ai-chat-container { display: none; margin-top: 20px; border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden; }
+        #ai-chat-log { height: 300px; overflow-y: auto; padding: 15px; background-color: #fcfcfc; }
+        .chat-message { margin-bottom: 10px; display: flex; }
+        .chat-message.user-message { flex-direction: row-reverse; }
+        .chat-message .avatar { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 10px; }
+        .chat-message.ai-message .avatar { background-color: #e8f5e9; }
+        .chat-message.user-message .avatar { background-color: #e3f2fd; }
+        /* 优化 Markdown 渲染后的表现 */
+        .message-content p { margin-bottom: 0.8em; }
+        .message-content ul, .message-content ol { 
+            margin-left: 25px; 
+            margin-bottom: 1em; 
+            list-style: disc; /* 确保显示列表圆点 */
+        }
+        .message-content strong { color: #e67e22; font-weight: bold; } /* 给重点词汇加个颜色 */
+        .message-content code { background: #f0f0f0; padding: 2px 4px; border-radius: 4px; }
+        .message-content pre { background: #f8f9fa; padding: 10px; border-radius: 5px; overflow-x: auto; }
+        .message-content { background-color: #fff; padding: 8px 12px; border-radius: 12px; border: 1px solid #eee; max-width: 80%; white-space: pre-wrap; }
+        .chat-message.user-message .message-content { background-color: #d1ecf1; border-color: #bee5eb; }
+        
+        /* 结算页面 */
+        #quiz-complete-container { display: none; text-align: center; padding: 40px; }
+        .trophy-icon { font-size: 5em; color: #f1c40f; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1 id="quiz-title" style="text-align: center; color: #2c3e50;">正在准备题目...</h1>
+
+    <div id="quiz-container">
+        <div class="card" style="background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+            
+            <div class="question-header">
+                <span id="question-number" style="background: #eee; padding: 2px 8px; border-radius: 4px; font-size: 0.9em;">...</span>
+                <span id="difficulty-stars"></span>
+            </div>
+            
+            <div id="question-text" class="question-text">题目加载中...</div>
+
+            <div id="question-images-container" style="text-align: center; margin: 15px 0;"></div>
+
+            <div class="interaction-area">
+                <input type="text" id="user-answer-input" placeholder="请输入你的答案 (如: A)" autocomplete="off">
+                <button id="submit-answer-btn" class="btn-primary">提交答案</button>
+            </div>
+            
+            <div id="feedback-container">
+                <div id="feedback-correct" class="feedback-correct">
+                    <i class="fas fa-check-circle"></i> 回答正确！太棒了！
+                </div>
+                <div id="feedback-wrong" class="feedback-wrong">
+                    <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 10px;">
+                        <i class="fas fa-times-circle"></i> 回答错误
+                    </div>
+                    <p><strong>正确答案：</strong> <span id="correct-answer-text"></span></p>
+                    <p><strong>涉及考点：</strong> <span id="related-keypoint"></span></p>
+                </div>
+
+                <div id="recommendation-container">
+                    <div id="recommendation-text"></div>
+                </div>
+            </div>
+
+        </div>
+
+        <div style="margin-top: 20px; text-align: center;">
+            <button id="get-ai-analysis-btn" class="btn-ai">
+                <i class="fas fa-robot"></i> 让 AI 老师讲讲
+            </button>
+            <button id="next-question-btn" class="btn-secondary" style="margin-top: 10px;">
+                下一题 <i class="fas fa-arrow-right"></i>
+            </button>
+        </div>
+
+        <div id="ai-chat-container">
+            <div style="background: #f1f1f1; padding: 10px; font-weight: bold; color: #555;">
+                <i class="fas fa-comment-dots"></i> AI 苏格拉底老师
+            </div>
+
+            <div id="ai-chat-log"></div>
+
+            <div id="chat-input-area" style="padding: 10px; border-top: 1px solid #ddd; display: flex; gap: 10px; background: #fff;">
+                <input type="text" id="chat-user-input" placeholder="哪里不懂？继续问老师..." 
+                        style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <button id="chat-send-btn" class="btn-primary" style="padding: 8px 15px; font-size: 0.9em;">
+                    发送
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="quiz-complete-container">
+        <div class="trophy-icon"><i class="fas fa-trophy"></i></div>
+        <h2>恭喜你！本轮练习完成！</h2>
+        <p>你已经战胜了所有题目，休息一下吧。</p>
+        <button onclick="window.location.href='dashboard.html'" class="btn-primary" style="margin-top: 20px;">
+            返回主页
+        </button>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+<script src="js/main.js"></script>
+<script src="js/homework-quiz.js"></script>
+
+</body>
+</html>
