@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个性化学习中心 - 化学错题管理</title>
+    <style>
+        :root {
+            --primary-color: #4A90E2;
+            --success-color: #2ECC71;
+            --bg-color: #F5F7FA;
+            --card-bg: #FFFFFF;
+            --text-main: #333333;
+            --text-muted: #7F8C8D;
+            --border-color: #E4E7ED;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            display: none; /* 默认隐藏所有卡片 */
+        }
+        .active-view {
+            display: block; /* 激活显示的卡片 */
+        }
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .btn:hover { background-color: #357ABD; }
+        .btn:disabled { background-color: #A0C4FF; cursor: not-allowed; }
+        .btn-success { background-color: var(--success-color); }
+        .btn-success:hover { background-color: #27AE60; }
+        
+        /* 单元选择网格 */
+        .unit-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .unit-label {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+        .unit-label:hover { border-color: var(--primary-color); }
+        .unit-label input { margin-right: 10px; }
+        
+        /* 加载动画 */
+        .loader {
+            text-align: center;
+            padding: 40px;
+            color: var(--primary-color);
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* 题目样式 */
+        .question-block {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #FAFAFA;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        .question-meta {
+            font-size: 12px;
+            color: white;
+            background: var(--primary-color);
+            padding: 3px 8px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+        .options-list { list-style: none; padding: 0; }
+        .options-list li { margin: 10px 0; }
+        .options-list label {
+            display: block;
+            padding: 10px;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .options-list label:hover { border-color: var(--primary-color); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    
+    <div id="welcomeView" class="card active-view">
+        <h2>👋 欢迎来到专属化学提分系统！</h2>
+        <p>系统检测到您是第一次使用。为了给您制定最精准的<strong>学习计划</strong>，AI 需要对您的当前水平进行一次“摸底诊断”。</p>
+        <button class="btn" onclick="switchView('unitSelectionView')">下一步：选择已学进度</button>
+    </div>
+
+    <div id="unitSelectionView" class="card">
+        <h2>📚 请选择您已经学过的单元</h2>
+        <p style="color: var(--text-muted); font-size: 14px;">AI 将仅从您勾选的范围内生成诊断试题，避免超纲。</p>
+        
+        <div class="unit-grid" id="unitGrid">
+            </div>
+        
+        <button class="btn" id="generateBtn" onclick="requestAIQuestions()">通知 AI 生成专属试卷</button>
+    </div>
+
+    <div id="loadingView" class="card">
+        <div class="loader">
+            <div class="spinner"></div>
+            <h3 id="loadingText">AI 命题专家正在为您组卷...</h3>
+            <p style="color: var(--text-muted); font-size: 14px;">正在调用 DeepSeek 大模型，这可能需要 5-10 秒钟，请稍候。</p>
+        </div>
+    </div>
+
+    <div id="quizView" class="card">
+        <h2>📝 初始能力诊断测试</h2>
+        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">请认真作答，系统将根据您的表现计算 IRT 能力值。</p>
+        
+        <div id="quizContainer">
+            </div>
+        
+        <div style="text-align: center; margin-top: 30px;">
+            <button class="btn btn-success" style="width: 100%; font-size: 18px;" onclick="submitDiagnostic()">提交试卷，生成学习计划</button>
+        </div>
+    </div>
+
+    <div id="dashboardView" class="card">
+        <div style="border-left: 4px solid var(--primary-color); padding-left: 15px; margin-bottom: 20px;">
+            <h2>📝 今日学习计划</h2>
+            <p id="planSubtitle">根据诊断，AI已为您制定好今日目标：</p>
+        </div>
+        
+        <div id="dailyTasks" style="margin-bottom: 30px;">
+            <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+                <strong>🎯 攻克薄弱点</strong>
+                <p style="font-size: 13px; color: var(--text-muted);">系统正在调配符合您当前 IRT 能力值的针对性题目...</p>
+            </div>
+        </div>
+
+        <button class="btn" style="width: 100%;" onclick="alert('即将进入日常 IRT 推题模式！(开发中)')">🚀 开始今日答题</button>
+    </div>
+
+</div>
+
+<script>
+    // 人教版初三化学12个单元
+    const chemistryUnits = [
+        "第一单元 走进化学世界", "第二单元 我们周围的空气", "第三单元 物质构成的奥秘", 
+        "第四单元 自然界的水", "第五单元 化学方程式", "第六单元 碳和碳的氧化物", 
+        "第七单元 燃料及其利用", "第八单元 金属和金属材料", "第九单元 溶液", 
+        "第十单元 酸和碱", "第十一单元 盐 化肥", "第十二单元 化学与生活"
+    ];
+
+    // 页面加载完成后初始化
+    document.addEventListener("DOMContentLoaded", () => {
+        // 渲染单元选项
+        const grid = document.getElementById('unitGrid');
+        chemistryUnits.forEach((unit, index) => {
+            const label = document.createElement('label');
+            label.className = 'unit-label';
+            label.innerHTML = `<input type="checkbox" value="${index + 1}" onchange="checkSelection()"> ${unit}`;
+            grid.appendChild(label);
+        });
+        checkSelection();
+
+        // 模拟判断是否为首次使用（你可以换成真实的鉴权或 localStorage 判断）
+        const isFirstTime = !localStorage.getItem('hasCompletedDiagnostic');
+        if (!isFirstTime) {
+            switchView('dashboardView');
+        }
+    });
+
+    // 视图切换控制
+    function switchView(viewId) {
+        document.querySelectorAll('.card').forEach(card => card.classList.remove('active-view'));
+        document.getElementById(viewId).classList.add('active-view');
+    }
+
+    // 监听复选框状态，控制按钮可用性
+    function checkSelection() {
+        const checked = document.querySelectorAll('#unitGrid input:checked').length;
+        document.getElementById('generateBtn').disabled = checked === 0;
+    }
+
+    // 🌟 核心逻辑：向 Netlify 函数请求 AI 出题
+    async function requestAIQuestions() {
+        const selectedUnits = Array.from(document.querySelectorAll('#unitGrid input:checked'))
+                                  .map(cb => parseInt(cb.value));
+        
+        switchView('loadingView');
+        document.getElementById('loadingText').innerText = "AI 命题专家正在为您组卷...";
+
+        try {
+            // 调用我们刚写的 Node.js + DeepSeek 接口
+            const response = await fetch('/.netlify/functions/generate-diagnostic', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: "generate_diagnostic",
+                    learned_units: selectedUnits,
+                    question_count: 1 // 诊断试卷默认5道题
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`请求失败，状态码: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            // 兼容返回格式：可能是 { questions: [...] } 或直接是 [...]
+            const questionsArray = Array.isArray(data) ? data : data.questions;
+
+            if (questionsArray && questionsArray.length > 0) {
+                renderQuiz(questionsArray);
+            } else {
+                throw new Error("AI 返回的数据为空或格式错误");
+            }
+
+        } catch (error) {
+            console.error("出题失败:", error);
+            alert("AI 生成题目失败，请检查网络或后端日志！\n错误信息: " + error.message);
+            switchView('unitSelectionView');
+        }
+    }
+
+    // 渲染 AI 返回的题目到页面上
+    function renderQuiz(questions) {
+        const container = document.getElementById('quizContainer');
+        container.innerHTML = ''; 
+
+        // 遍历生成 HTML
+        questions.forEach((q, index) => {
+            let html = `
+                <div class="question-block" data-answer="${q.answer}" data-kp="${q.knowledge_point}">
+                    <span class="question-meta">${q.difficulty || '基础'} | ${q.knowledge_point || '综合'}</span>
+                    <h4 style="margin-top: 5px;">${index + 1}. ${q.text}</h4>
+                    <ul class="options-list">`;
+            
+            q.options.forEach((opt, optIndex) => {
+                const optLetter = String.fromCharCode(65 + optIndex); // A, B, C, D
+                html += `
+                    <li>
+                        <label>
+                            <input type="radio" name="q_${index}" value="${optLetter}"> 
+                            <strong>${optLetter}.</strong> ${opt}
+                        </label>
+                    </li>`;
+            });
+            
+            html += `</ul></div>`;
+            container.innerHTML += html;
+        });
+
+        switchView('quizView');
+    }
+
+    // 提交答卷，模拟分析并生成计划
+    function submitDiagnostic() {
+        // 获取所有题目区块
+        const questionBlocks = document.querySelectorAll('.question-block');
+        let unAnswered = false;
+
+        questionBlocks.forEach((block, index) => {
+            const selected = block.querySelector(`input[name="q_${index}"]:checked`);
+            if (!selected) {
+                unAnswered = true;
+            }
+        });
+
+        if (unAnswered) {
+            alert("请完成所有题目后再提交！");
+            return;
+        }
+
+        // 切换到分析动画
+        switchView('loadingView');
+        document.getElementById('loadingText').innerText = "AI 正在批改并计算您的 IRT 能力图谱...";
+
+        // 模拟网络延迟和分析过程
+        setTimeout(() => {
+            // 记录已完成诊断
+            localStorage.setItem('hasCompletedDiagnostic', 'true');
+            
+            alert("🎯 分析完成！专属学习计划已生成。");
+            
+            // 切换到计划面板
+            switchView('dashboardView');
+        }, 2000);
+    }
+</script>
+
+</body>
+</html>

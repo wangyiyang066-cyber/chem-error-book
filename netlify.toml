@@ -1,6 +1,5 @@
 # netlify.toml
 
-# --- 你原来的配置 (保留) ---
 [dev]
   ignore = ["node_modules", ".venv"]
 
@@ -14,10 +13,12 @@
   # 关键新增：告诉 Netlify 扫描时跳过所有 .py 文件，解决你的构建报错
   SECRETS_SCAN_OMIT_PATHS = "*.py"
 
-# --- 你原来的配置 (保留) ---
-# 为 AI 函数设置超时
+# --- 为 AI 函数设置超时 (绝不崩溃的安全写法) ---
 [functions."get-ai-analysis"]
   timeout = 90
+
+[functions."generate-diagnostic"]
+  timeout = 60  # 🌟 给 DeepSeek 充足的 60 秒思考时间！
 
 # --- Python 运行时配置 ---
 [functions.python]
