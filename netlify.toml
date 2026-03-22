@@ -1,4 +1,6 @@
-# netlify.toml
+# ==========================================
+# 🚀 终极版 netlify.toml (突破 10 秒限制)
+# ==========================================
 
 [dev]
   ignore = ["node_modules", ".venv"]
@@ -7,18 +9,27 @@
 [build]
   functions = "netlify/functions"
 
-# --- 合并后的环境变量配置 ---
+# --- 环境变量配置 ---
 [build.environment]
   NODE_VERSION = "18"
-  # 关键新增：告诉 Netlify 扫描时跳过所有 .py 文件，解决你的构建报错
+  # 告诉 Netlify 扫描时跳过所有 .py 文件，解决构建报错
   SECRETS_SCAN_OMIT_PATHS = "*.py"
 
-# --- 为 AI 函数设置超时 (绝不崩溃的安全写法) ---
+# --- 全局函数配置 ---
+[functions]
+  node_bundler = "esbuild"
+
 [functions."get-ai-analysis"]
   timeout = 90
 
 [functions."generate-diagnostic"]
-  timeout = 60  # 🌟 给 DeepSeek 充足的 60 秒思考时间！
+  timeout = 60  # 给诊断出题 60 秒思考时间
+
+[functions."generate-plan"]
+  timeout = 60  # 🚀 解决你刚才超时的核心：给生成计划 60 秒！
+
+[functions."get-daily-quiz"]
+  timeout = 60
 
 # --- Python 运行时配置 ---
 [functions.python]

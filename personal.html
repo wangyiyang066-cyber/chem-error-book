@@ -3,327 +3,412 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>个性化学习中心 - 化学错题管理</title>
+    <title>个性化学习中心 - 错题自适应系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth-guard.js"></script>
     <style>
         :root {
             --primary-color: #4A90E2;
+            --primary-light: #e1f0ff;
             --success-color: #2ECC71;
+            --warning-color: #F1C40F;
+            --danger-color: #E74C3C;
             --bg-color: #F5F7FA;
             --card-bg: #FFFFFF;
-            --text-main: #333333;
+            --text-main: #2C3E50;
             --text-muted: #7F8C8D;
             --border-color: #E4E7ED;
         }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        .card {
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 30px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            margin-bottom: 20px;
-            display: none; /* 默认隐藏所有卡片 */
-        }
-        .active-view {
-            display: block; /* 激活显示的卡片 */
-        }
-        .btn {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-        .btn:hover { background-color: #357ABD; }
-        .btn:disabled { background-color: #A0C4FF; cursor: not-allowed; }
-        .btn-success { background-color: var(--success-color); }
+        body { font-family: 'PingFang SC', 'Helvetica Neue', Arial, sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; padding: 20px; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; }
+        .container { width: 100%; max-width: 800px; margin-top: 20px; }
+        
+        .card { background: var(--card-bg); border-radius: 16px; padding: 35px; box-shadow: 0 8px 20px rgba(0,0,0,0.04); display: none; transition: all 0.3s ease; }
+        .active-view { display: block; animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        h1, h2, h3 { color: var(--text-main); margin-top: 0; }
+        p { line-height: 1.6; color: var(--text-muted); }
+
+        .btn { background-color: var(--primary-color); color: white; border: none; padding: 12px 28px; border-radius: 8px; font-size: 16px; font-weight: 500; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 10px rgba(74, 144, 226, 0.2); }
+        .btn:hover { background-color: #357ABD; transform: translateY(-2px); box-shadow: 0 6px 15px rgba(74, 144, 226, 0.3); }
+        .btn:disabled { background-color: #A0C4FF; cursor: not-allowed; box-shadow: none; transform: none; }
+        .btn-success { background-color: var(--success-color); box-shadow: 0 4px 10px rgba(46, 204, 113, 0.2); }
         .btn-success:hover { background-color: #27AE60; }
+        .btn-outline { background-color: transparent; color: var(--text-muted); border: 1px solid var(--border-color); box-shadow: none; padding: 8px 16px; font-size: 14px; border-radius: 6px;}
+        .btn-outline:hover { background-color: var(--bg-color); color: var(--text-main); }
+
+        /* Quiz 界面 */
+        #quizView { padding: 0; position: relative; overflow: hidden; }
+        .quiz-header { background-color: #fafbfc; padding: 15px 30px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .timer-box { font-family: 'Courier New', monospace; font-size: 16px; color: var(--primary-color); font-weight: bold; background: var(--primary-light); padding: 5px 12px; border-radius: 20px; }
+        .quiz-body { padding: 30px; }
+        .question-text { font-size: 18px; font-weight: 600; line-height: 1.6; margin-bottom: 25px;}
+        .difficulty-tag { font-size: 12px; color: white; background: var(--border-color); padding: 3px 8px; border-radius: 4px; margin-right: 10px; vertical-align: middle; }
+        .options-list { list-style: none; padding: 0; margin: 0; }
+        .options-list li { margin-bottom: 15px; }
+        .options-list label { display: flex; align-items: center; padding: 18px; background: #FAFAFA; border: 2px solid transparent; border-radius: 10px; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.02);}
+        .options-list label:hover { border-color: var(--primary-light); background: #ffffff; }
+        .options-list input[type="radio"] { margin-right: 15px; width: 18px; height: 18px; accent-color: var(--primary-color); }
+        .options-list label.selected { border-color: var(--primary-color); background-color: var(--primary-light); }
+        .quiz-footer { padding: 20px 30px 30px 30px; text-align: right; border-top: 1px solid var(--border-color); background: #fafbfc;}
+
+        .ai-thinking-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; display: none; }
+        .active-thinking { display: flex; animation: fadeIn 0.3s; }
+        .brain-icon { font-size: 50px; margin-bottom: 20px; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.1); opacity: 0.7; } 100% { transform: scale(1); opacity: 1; } }
+
+        /* 周计划路线图 UI */
+        .dashboard-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color);}
+        .theta-badge { display: inline-block; background: var(--primary-color); color: white; padding: 4px 10px; border-radius: 20px; font-size: 14px; font-weight: bold; margin-top: 8px;}
+        .timeline-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; position: relative; }
+        .day-card { background: #FFFFFF; border: 2px solid var(--border-color); border-radius: 12px; padding: 20px; transition: all 0.2s; cursor: pointer; position: relative; display: flex; flex-direction: column; justify-content: space-between;}
+        .day-card:hover { border-color: var(--primary-color); transform: translateY(-4px); box-shadow: 0 10px 20px rgba(74, 144, 226, 0.1); }
         
-        /* 单元选择网格 */
-        .unit-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
-        }
-        .unit-label {
-            display: flex;
-            align-items: center;
-            padding: 12px;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 14px;
-        }
-        .unit-label:hover { border-color: var(--primary-color); }
-        .unit-label input { margin-right: 10px; }
-        
-        /* 加载动画 */
-        .loader {
-            text-align: center;
-            padding: 40px;
-            color: var(--primary-color);
-        }
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid var(--primary-color);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 15px auto;
-        }
+        .day-card.today { border-color: var(--primary-color); background: linear-gradient(180deg, #ffffff 0%, #f4f9ff 100%); box-shadow: 0 4px 15px rgba(74, 144, 226, 0.15); }
+        .day-card.today::before { content: '📍 今日任务'; position: absolute; top: -12px; left: 20px; background: var(--primary-color); color: white; font-size: 12px; font-weight: bold; padding: 2px 10px; border-radius: 10px; }
+
+        .day-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .day-title { font-weight: 800; color: var(--text-main); font-size: 18px; }
+        .day-date { font-size: 12px; color: var(--text-muted); background: var(--bg-color); padding: 2px 8px; border-radius: 4px;}
+        .day-task { font-size: 15px; color: var(--text-main); margin-bottom: 15px; font-weight: 500; line-height: 1.5; flex-grow: 1;}
+        .day-meta { font-size: 13px; color: var(--text-muted); background: #fafbfc; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);}
+        .meta-item { display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .meta-item:last-child { margin-bottom: 0; }
+
+        /* 沉浸式弹窗 Modal UI */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 100; opacity: 0; visibility: hidden; transition: all 0.3s ease; }
+        .modal-overlay.show { opacity: 1; visibility: visible; }
+        .modal-content { background: white; width: 90%; max-width: 500px; border-radius: 20px; padding: 35px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); transform: scale(0.95) translateY(20px); transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); position: relative; }
+        .modal-overlay.show .modal-content { transform: scale(1) translateY(0); }
+        .close-btn { position: absolute; top: 20px; right: 25px; font-size: 28px; color: var(--text-muted); cursor: pointer; line-height: 1; transition: color 0.2s;}
+        .close-btn:hover { color: var(--danger-color); }
+        .modal-header { margin-bottom: 25px; border-bottom: 2px solid var(--primary-light); padding-bottom: 15px;}
+        .modal-detail-box { background: #fafbfc; border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; margin-bottom: 30px; }
+        .detail-row { display: flex; align-items: flex-start; margin-bottom: 15px; }
+        .detail-row:last-child { margin-bottom: 0; }
+        .detail-icon { font-size: 20px; margin-right: 15px; }
+        .detail-text strong { display: block; color: var(--text-main); margin-bottom: 4px; }
+        .detail-text span { color: var(--text-muted); font-size: 14px; line-height: 1.5; display: block;}
+
+        #globalLoading { text-align: center; padding: 50px; }
+        .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
-        /* 题目样式 */
-        .question-block {
-            margin-bottom: 30px;
-            padding: 20px;
-            background: #FAFAFA;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-        }
-        .question-meta {
-            font-size: 12px;
-            color: white;
-            background: var(--primary-color);
-            padding: 3px 8px;
-            border-radius: 4px;
-            margin-bottom: 10px;
-            display: inline-block;
-        }
-        .options-list { list-style: none; padding: 0; }
-        .options-list li { margin: 10px 0; }
-        .options-list label {
-            display: block;
-            padding: 10px;
-            background: white;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            cursor: pointer;
-            transition: border-color 0.2s;
-        }
-        .options-list label:hover { border-color: var(--primary-color); }
     </style>
 </head>
 <body>
 
 <div class="container">
     
-    <div id="welcomeView" class="card active-view">
-        <h2>👋 欢迎来到专属化学提分系统！</h2>
-        <p>系统检测到您是第一次使用。为了给您制定最精准的<strong>学习计划</strong>，AI 需要对您的当前水平进行一次“摸底诊断”。</p>
-        <button class="btn" onclick="switchView('unitSelectionView')">下一步：选择已学进度</button>
+    <div id="globalLoading" class="card active-view">
+        <div class="spinner"></div>
+        <h3>正在安全同步您的学习图谱...</h3>
+    </div>
+
+    <div id="welcomeView" class="card">
+        <h2 style="margin-bottom: 10px;">📅 新的一周开始了！</h2>
+        <p style="margin-bottom: 25px;">为了制定最贴合你当前水平的学习路线，我们需要进行一次 <strong>CAT 自适应摸底</strong> (仅需 5 道题)。</p>
+        <button class="btn" onclick="switchView('unitSelectionView')">开始制定本周路线</button>
     </div>
 
     <div id="unitSelectionView" class="card">
-        <h2>📚 请选择您已经学过的单元</h2>
-        <p style="color: var(--text-muted); font-size: 14px;">AI 将仅从您勾选的范围内生成诊断试题，避免超纲。</p>
-        
-        <div class="unit-grid" id="unitGrid">
-            </div>
-        
-        <button class="btn" id="generateBtn" onclick="requestAIQuestions()">通知 AI 生成专属试卷</button>
-    </div>
-
-    <div id="loadingView" class="card">
-        <div class="loader">
-            <div class="spinner"></div>
-            <h3 id="loadingText">AI 命题专家正在为您组卷...</h3>
-            <p style="color: var(--text-muted); font-size: 14px;">正在调用 DeepSeek 大模型，这可能需要 5-10 秒钟，请稍候。</p>
-        </div>
+        <h2>📚 请划定本周的火力范围</h2>
+        <p style="color: var(--text-muted); font-size: 14px;">AI 将在这个范围内寻找你的薄弱点和最近发展区。</p>
+        <div class="unit-grid" id="unitGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin: 25px 0;"></div>
+        <button class="btn" id="generateBtn" onclick="startAdaptiveQuiz()" disabled>开启 AI 自适应诊断</button>
     </div>
 
     <div id="quizView" class="card">
-        <h2>📝 初始能力诊断测试</h2>
-        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">请认真作答，系统将根据您的表现计算 IRT 能力值。</p>
-        
-        <div id="quizContainer">
-            </div>
-        
-        <div style="text-align: center; margin-top: 30px;">
-            <button class="btn btn-success" style="width: 100%; font-size: 18px;" onclick="submitDiagnostic()">提交试卷，生成学习计划</button>
+        <div class="quiz-header">
+            <span style="font-size: 14px; color: var(--text-muted); font-weight: bold;" id="quizProgress">题目 1 / 5</span>
+            <div class="timer-box">⏱️ <span id="timerDisplay">00:00.000</span></div>
+        </div>
+        <div class="ai-thinking-overlay" id="aiThinking">
+            <div class="brain-icon">🧠</div>
+            <div style="font-weight: bold; color: var(--primary-color); margin-bottom: 10px;" id="thinkingStatus">AI 命题专家正在思考...</div>
+            <div style="font-size: 13px; color: var(--text-muted);" id="adaptiveDesc">正在为您动态调整知识点与难度系数...</div>
+        </div>
+        <div class="quiz-body" id="questionStage"></div>
+        <div class="quiz-footer">
+            <button class="btn btn-success" id="submitBtn" onclick="submitSingleAnswer()" disabled>提交回答 (进入下一轮博弈)</button>
         </div>
     </div>
 
     <div id="dashboardView" class="card">
-        <div style="border-left: 4px solid var(--primary-color); padding-left: 15px; margin-bottom: 20px;">
-            <h2>📝 今日学习计划</h2>
-            <p id="planSubtitle">根据诊断，AI已为您制定好今日目标：</p>
-        </div>
-        
-        <div id="dailyTasks" style="margin-bottom: 30px;">
-            <div style="padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
-                <strong>🎯 攻克薄弱点</strong>
-                <p style="font-size: 13px; color: var(--text-muted);">系统正在调配符合您当前 IRT 能力值的针对性题目...</p>
+        <div class="dashboard-header">
+            <div>
+                <h1 style="margin: 0; font-size: 24px;">🗺️ 本周学习路线图</h1>
+                <div class="theta-badge" id="finalThetaDisplay">IRT 估算能力值: 获取中...</div>
             </div>
+            <button class="btn-outline" onclick="retakeDiagnostic()">重新诊断</button>
         </div>
-
-        <button class="btn" style="width: 100%;" onclick="alert('即将进入日常 IRT 推题模式！(开发中)')">🚀 开始今日答题</button>
+        <div id="planContainer"></div>
     </div>
-
 </div>
 
+<div id="taskModal" class="modal-overlay">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeTaskModal()">&times;</span>
+        <div class="modal-header">
+            <h2 id="modalDayTitle" style="margin: 0; color: var(--primary-color);">周X 任务</h2>
+        </div>
+        <div class="modal-detail-box">
+            <div class="detail-row">
+                <div class="detail-icon">📝</div>
+                <div class="detail-text">
+                    <strong>任务指引</strong>
+                    <span id="modalTaskDesc">具体任务描述内容...</span>
+                </div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-icon">🎯</div>
+                <div class="detail-text">
+                    <strong>攻坚知识点</strong>
+                    <span id="modalTaskKp" style="color: var(--primary-color); font-weight: 500;">质量守恒定律</span>
+                </div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-icon">⚡️</div>
+                <div class="detail-text">
+                    <strong>匹配难度 (最近发展区)</strong>
+                    <span id="modalTaskDiff">0.55</span>
+                </div>
+            </div>
+        </div>
+        <button class="btn btn-success" style="width: 100%; font-size: 18px; padding: 15px;" onclick="alert('即将进入刷题系统！')">🚀 认领任务，开始刷题</button>
+    </div>
+</div>
 <script>
-    // 人教版初三化学12个单元
-    const chemistryUnits = [
-        "第一单元 走进化学世界", "第二单元 我们周围的空气", "第三单元 物质构成的奥秘", 
-        "第四单元 自然界的水", "第五单元 化学方程式", "第六单元 碳和碳的氧化物", 
-        "第七单元 燃料及其利用", "第八单元 金属和金属材料", "第九单元 溶液", 
-        "第十单元 酸和碱", "第十一单元 盐 化肥", "第十二单元 化学与生活"
-    ];
+// ==========================================
+// 🌟 1. 当场拼装 Supabase 客户端 (绝对不会报 undefined 了)
+// ==========================================
+const SUPABASE_URL = 'https://ghuyiwhqdellucjxqiwj.supabase.co'; 
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdodXlpd2hxZGVsbHVjanhxaXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MzQwOTQsImV4cCI6MjA3MzAxMDA5NH0.toJ68-C9Kq_GmD_pGiXLH5_TK7MhawdBsdCv1FP-TVk';
+const mySupabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // 页面加载完成后初始化
-    document.addEventListener("DOMContentLoaded", () => {
-        // 渲染单元选项
-        const grid = document.getElementById('unitGrid');
-        chemistryUnits.forEach((unit, index) => {
-            const label = document.createElement('label');
-            label.className = 'unit-label';
-            label.innerHTML = `<input type="checkbox" value="${index + 1}" onchange="checkSelection()"> ${unit}`;
-            grid.appendChild(label);
-        });
-        checkSelection();
 
-        // 模拟判断是否为首次使用（你可以换成真实的鉴权或 localStorage 判断）
-        const isFirstTime = !localStorage.getItem('hasCompletedDiagnostic');
-        if (!isFirstTime) {
-            switchView('dashboardView');
-        }
-    });
+// ==========================================
+// 🚨 终极调试版：全链路状态追踪
+// ==========================================
+function updateStatus(message) {
+    console.log("⏳ [执行步骤]:", message);
+    const loadingText = document.querySelector('#globalLoading h3');
+    if (loadingText) loadingText.innerText = message;
+}
 
-    // 视图切换控制
-    function switchView(viewId) {
-        document.querySelectorAll('.card').forEach(card => card.classList.remove('active-view'));
-        document.getElementById(viewId).classList.add('active-view');
+function crashScreen(step, errorDetail) {
+    console.error(`❌ [系统崩溃] 步骤: ${step}`, errorDetail);
+    const loadingCard = document.getElementById('globalLoading');
+    if (loadingCard) {
+        loadingCard.innerHTML = `
+            <div style="background: #FFF0F0; border: 2px solid #E74C3C; border-radius: 12px; padding: 25px; text-align: left;">
+                <h2 style="color: #E74C3C; margin-top: 0;">💥 系统卡住了！</h2>
+                <p><strong>死在这一步：</strong> ${step}</p>
+                <p><strong>具体原因：</strong> <span style="font-family: monospace; color: #c0392b;">${errorDetail}</span></p>
+                <hr style="border-top: 1px solid #fab1a0; margin: 15px 0;">
+                <a href="index.html" style="display:inline-block; margin-top:15px; padding:8px 15px; background:#3498db; color:white; text-decoration:none; border-radius:5px;">返回主页重新登录</a>
+            </div>
+        `;
     }
+}
 
-    // 监听复选框状态，控制按钮可用性
-    function checkSelection() {
-        const checked = document.querySelectorAll('#unitGrid input:checked').length;
-        document.getElementById('generateBtn').disabled = checked === 0;
+function getWeekId() {
+    const now = new Date();
+    const day = now.getDay(); 
+    const diff = now.getDate() - (day === 0 ? 6 : day - 1); 
+    const monday = new Date(now.setDate(diff));
+    return monday.toISOString().split('T')[0]; 
+}
+
+const chemistryUnits = ["走进化学世界", "我们周围的空气", "物质构成的奥秘", "自然界的水", "化学方程式", "碳和碳的氧化物", "燃料及其利用", "金属和金属材料", "溶液", "酸和碱", "盐 化肥", "化学与生活"];
+let quizState = { totalQuestions: 5, currentStage: 0, learnedUnits: [], currentQuestion: null, answersTrace: [], currentTheta: 0.5 };
+let timer = { startTime: null, intervalId: null, elapsed: 0 };
+
+document.addEventListener("DOMContentLoaded", async () => {
+    initUnitCheckboxes();
+    await checkWeeklyStatus();
+});
+
+
+// ==========================================
+// 🌟 核心：获取有效 Token (使用 mySupabaseClient)
+// ==========================================
+async function getValidToken(stepName) {
+    updateStatus(`${stepName} -> 获取身份令牌...`);
+    // 👇 注意这里：我们用刚拼装好的 mySupabaseClient 👇
+    const { data: { session }, error } = await mySupabaseClient.auth.getSession();
+    
+    if (error || !session) {
+        alert("⚠️ 登录已失效或未登录，请返回主页重新登录！");
+        window.location.href = "index.html";
+        return null;
     }
+    return session.access_token;
+}
 
-    // 🌟 核心逻辑：向 Netlify 函数请求 AI 出题
-    async function requestAIQuestions() {
-        const selectedUnits = Array.from(document.querySelectorAll('#unitGrid input:checked'))
-                                  .map(cb => parseInt(cb.value));
+
+// ==========================================
+// 🌟 核心：进门查房
+// ==========================================
+async function checkWeeklyStatus() {
+    try {
+        updateStatus("第 1 步：向 Supabase 索要登录钥匙 (Token)...");
+        const token = await getValidToken("查房");
+        if (!token) return; // 如果没拿到Token，getValidToken里已经跳回主页了
+
+        const currentWeekId = getWeekId();
         
-        switchView('loadingView');
-        document.getElementById('loadingText').innerText = "AI 命题专家正在为您组卷...";
-
-        try {
-            // 调用我们刚写的 Node.js + DeepSeek 接口
-            const response = await fetch('/.netlify/functions/generate-diagnostic', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: "generate_diagnostic",
-                    learned_units: selectedUnits,
-                    question_count: 1 // 诊断试卷默认5道题
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error(`请求失败，状态码: ${response.status}`);
-            }
-
-            const data = await response.json();
-            
-            // 兼容返回格式：可能是 { questions: [...] } 或直接是 [...]
-            const questionsArray = Array.isArray(data) ? data : data.questions;
-
-            if (questionsArray && questionsArray.length > 0) {
-                renderQuiz(questionsArray);
-            } else {
-                throw new Error("AI 返回的数据为空或格式错误");
-            }
-
-        } catch (error) {
-            console.error("出题失败:", error);
-            alert("AI 生成题目失败，请检查网络或后端日志！\n错误信息: " + error.message);
-            switchView('unitSelectionView');
-        }
-    }
-
-    // 渲染 AI 返回的题目到页面上
-    function renderQuiz(questions) {
-        const container = document.getElementById('quizContainer');
-        container.innerHTML = ''; 
-
-        // 遍历生成 HTML
-        questions.forEach((q, index) => {
-            let html = `
-                <div class="question-block" data-answer="${q.answer}" data-kp="${q.knowledge_point}">
-                    <span class="question-meta">${q.difficulty || '基础'} | ${q.knowledge_point || '综合'}</span>
-                    <h4 style="margin-top: 5px;">${index + 1}. ${q.text}</h4>
-                    <ul class="options-list">`;
-            
-            q.options.forEach((opt, optIndex) => {
-                const optLetter = String.fromCharCode(65 + optIndex); // A, B, C, D
-                html += `
-                    <li>
-                        <label>
-                            <input type="radio" name="q_${index}" value="${optLetter}"> 
-                            <strong>${optLetter}.</strong> ${opt}
-                        </label>
-                    </li>`;
-            });
-            
-            html += `</ul></div>`;
-            container.innerHTML += html;
+        updateStatus(`第 2 步：准备呼叫后端查房 (周ID: ${currentWeekId})...`);
+        const response = await fetch('/.netlify/functions/get-weekly-plan', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ week_id: currentWeekId })
         });
 
-        switchView('quizView');
-    }
-
-    // 提交答卷，模拟分析并生成计划
-    function submitDiagnostic() {
-        // 获取所有题目区块
-        const questionBlocks = document.querySelectorAll('.question-block');
-        let unAnswered = false;
-
-        questionBlocks.forEach((block, index) => {
-            const selected = block.querySelector(`input[name="q_${index}"]:checked`);
-            if (!selected) {
-                unAnswered = true;
-            }
-        });
-
-        if (unAnswered) {
-            alert("请完成所有题目后再提交！");
-            return;
+        updateStatus("第 3 步：等待后端响应...");
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`后端返回错误码 ${response.status}。详情: ${errText}`);
         }
 
-        // 切换到分析动画
-        switchView('loadingView');
-        document.getElementById('loadingText').innerText = "AI 正在批改并计算您的 IRT 能力图谱...";
-
-        // 模拟网络延迟和分析过程
-        setTimeout(() => {
-            // 记录已完成诊断
-            localStorage.setItem('hasCompletedDiagnostic', 'true');
-            
-            alert("🎯 分析完成！专属学习计划已生成。");
-            
-            // 切换到计划面板
+        updateStatus("第 4 步：解析数据并分发界面...");
+        const result = await response.json();
+        
+        if (result.hasPlan && result.planData && result.planData.plan_json) {
+            quizState.currentTheta = parseFloat(result.planData.theta_score);
+            document.getElementById('finalThetaDisplay').innerText = `🎯 Theta: ${quizState.currentTheta.toFixed(2)}`;
+            renderWeeklyPlan(result.planData.plan_json);
             switchView('dashboardView');
-        }, 2000);
+        } else {
+            if (result.initial_theta) quizState.currentTheta = result.initial_theta;
+            switchView('welcomeView');
+        }
+    } catch (err) {
+        crashScreen("进门查房阶段", err.message);
     }
-</script>
+}
 
+// ==========================================
+// 🌟 诊断出题
+// ==========================================
+async function loadNextAdaptiveQuestion(isFirst = false) {
+    quizState.currentStage++;
+    if(quizState.currentStage > quizState.totalQuestions) { finishQuiz(); return; }
+
+    document.getElementById('quizProgress').innerText = `诊断进行中 ${quizState.currentStage} / ${quizState.totalQuestions}`;
+    document.getElementById('submitBtn').disabled = true;
+
+    const thinkingOverlay = document.getElementById('aiThinking');
+    document.getElementById('thinkingStatus').innerText = isFirst ? "AI 正在抽取基准题..." : `AI 重新估算 Theta 为 ${quizState.currentTheta.toFixed(2)}...`;
+    thinkingOverlay.classList.add('active-thinking');
+
+    try {
+        const token = await getValidToken("请求诊断题");
+        if (!token) return;
+
+        document.getElementById('thinkingStatus').innerText = "正在呼叫 DeepSeek 大脑...";
+        const response = await fetch('/.netlify/functions/generate-diagnostic', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, 
+            body: JSON.stringify({ action: "generate_adaptive_question", current_theta: quizState.currentTheta, units: quizState.learnedUnits, trace: quizState.answersTrace }) 
+        });
+
+        if (!response.ok) throw new Error(`后端响应异常: ${response.status}`);
+        
+        document.getElementById('thinkingStatus').innerText = "正在解析题目...";
+        quizState.currentQuestion = await response.json(); 
+        
+        const diffMeta = { "-1": {t:"基础", c:"#2ECC71"}, "0": {t:"中等", c:"#F1C40F"}, "1": {t:"拔高", c:"#E74C3C"} }[quizState.currentQuestion.difficulty_val] || {t:"中等", c:"#F1C40F"};
+        renderSingleQuestion(quizState.currentQuestion, diffMeta);
+
+    } catch (error) { 
+        alert(`❌ 出题失败: ${error.message}`); 
+        switchView('unitSelectionView'); 
+    } finally { 
+        thinkingOverlay.classList.remove('active-thinking'); 
+    }
+}
+
+// ==========================================
+// 🌟 生成计划
+// ==========================================
+async function finishQuiz() {
+    switchView('dashboardView');
+    document.getElementById('finalThetaDisplay').innerText = `🎯 Theta: ${quizState.currentTheta.toFixed(2)}`;
+    const planContainer = document.getElementById('planContainer');
+    planContainer.innerHTML = `<div id="planLoading" style="text-align:center; padding: 60px;"><div class="spinner"></div><h3 id="planStatusText">第 1 步：准备生成最终计划...</h3></div>`;
+
+    const updatePlanStatus = (msg) => { const el = document.getElementById('planStatusText'); if(el) el.innerText = msg; };
+
+    try {
+        const token = await getValidToken("生成计划");
+        if (!token) return;
+
+        updatePlanStatus("第 2 步：将答题轨迹发送给 AI 规划师...");
+        const response = await fetch('/.netlify/functions/generate-plan', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, 
+            body: JSON.stringify({ theta: quizState.currentTheta, trace: quizState.answersTrace }) 
+        });
+        
+        updatePlanStatus("第 3 步：等待 AI 排布路线并写入数据库...");
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`生成失败 (状态码 ${response.status}): ${errText}`);
+        }
+        
+        updatePlanStatus("第 4 步：成功！正在渲染路线图...");
+        renderWeeklyPlan(await response.json());
+        
+    } catch (error) { 
+        planContainer.innerHTML = `
+            <div style="background: #fff0f0; border: 2px solid red; padding: 20px; border-radius: 10px; text-align: left;">
+                <h3 style="color: red; margin-top:0;">❌ 计划生成环节崩溃！</h3>
+                <p style="font-family: monospace;">${error.message}</p>
+                <button class="btn btn-outline" onclick="retakeDiagnostic()">退回重试</button>
+            </div>`; 
+    }
+}
+
+
+
+// --- 以下是不涉及网络请求的纯 UI 逻辑 (保持不变) ---
+function initUnitCheckboxes() { const grid = document.getElementById('unitGrid'); chemistryUnits.forEach((unit, index) => { const label = document.createElement('label'); label.style = "display: flex; align-items: center; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; font-size: 14px; transition: all 0.2s; background: white;"; label.innerHTML = `<input type="checkbox" value="${index + 1}" style="margin-right:10px;" onchange="checkSelection()"> 第${index + 1}单元`; grid.appendChild(label); }); }
+function checkSelection() { document.getElementById('generateBtn').disabled = document.querySelectorAll('#unitGrid input:checked').length === 0; }
+function switchView(viewId) { document.querySelectorAll('.card').forEach(card => card.classList.remove('active-view')); document.getElementById(viewId).classList.add('active-view'); }
+function startAdaptiveQuiz() { quizState.learnedUnits = Array.from(document.querySelectorAll('#unitGrid input:checked')).map(cb => cb.value); switchView('quizView'); loadNextAdaptiveQuestion(true); }
+function renderSingleQuestion(q, diffMeta) { document.getElementById('questionStage').innerHTML = `<div class="question-text"><span class="difficulty-tag" style="background:${diffMeta.c}">${diffMeta.t}</span>${q.text}</div><ul class="options-list">${q.options.map((opt, i) => { const l = String.fromCharCode(65 + i); return `<li><label onclick="handleOptionClick(this)"><input type="radio" name="adaptive_opt" value="${l}"><strong>${l}.</strong>&nbsp;&nbsp;${opt}</label></li>`; }).join('')}</ul>`; startTimer(); }
+function handleOptionClick(labelEl) { document.querySelectorAll('.options-list label').forEach(el => el.classList.remove('selected')); labelEl.classList.add('selected'); document.getElementById('submitBtn').disabled = false; }
+async function submitSingleAnswer() { const selected = document.querySelector('input[name="adaptive_opt"]:checked'); if(!selected) return; stopTimer(); const timeSpentSeconds = timer.elapsed / 1000; const isCorrect = selected.value === quizState.currentQuestion.answer; let A = quizState.currentTheta; let D = quizState.currentQuestion.difficulty_val === "-1" ? 0.2 : (quizState.currentQuestion.difficulty_val === "1" ? 0.8 : 0.5); const P = 1 / (1 + Math.exp(-(A - D))); const qLen = quizState.currentQuestion.text.length + quizState.currentQuestion.options.join('').length; const T_exp = qLen * 0.2 + 10; let S = 0; if (isCorrect) { S = Math.min(1, T_exp / timeSpentSeconds); S = Math.max(0.5, S); } quizState.currentTheta = Math.max(0.1, Math.min(0.99, A + 0.1 * (S - P))); quizState.answersTrace.push({ qId: quizState.currentQuestion.id, kp: quizState.currentQuestion.knowledge_point, difficulty: D, isCorrect: isCorrect, timeSpent: timeSpentSeconds }); loadNextAdaptiveQuestion(false); }
+function renderWeeklyPlan(planData) { let planHtml = `<div class="timeline-grid">`; const todayIndex = 0; planData.forEach((dayInfo, index) => { const isToday = index === todayIndex ? 'today' : ''; planHtml += `<div class="day-card ${isToday}" onclick="openTaskModal('${dayInfo.day}', '${dayInfo.date}', '${dayInfo.target_diff}', '${dayInfo.kp}', '${dayInfo.task}')"><div><div class="day-header"><span class="day-title">${dayInfo.day}</span><span class="day-date">${dayInfo.date}</span></div><div class="day-task">${dayInfo.task}</div></div><div class="day-meta"><div class="meta-item"><span style="color:var(--text-muted)">考点</span><span style="font-weight:600; color:var(--text-main)">${dayInfo.kp}</span></div><div class="meta-item"><span style="color:var(--text-muted)">难度</span><span style="color:var(--primary-color); font-weight:bold;">${dayInfo.target_diff}</span></div></div></div>`; }); planHtml += `</div>`; document.getElementById('planContainer').innerHTML = planHtml; }
+function retakeDiagnostic() { if(confirm("确定要重新诊断吗？这将会覆盖您本周当前的进度和路线图！")) { quizState.currentStage = 0; quizState.answersTrace = []; quizState.currentTheta = 0.5; switchView('unitSelectionView'); } }
+function openTaskModal(day, date, targetDiff, kp, taskDesc) {
+        document.getElementById('modalDayTitle').innerText = `${day} (${date})`;
+        document.getElementById('modalTaskDesc').innerText = taskDesc;
+        document.getElementById('modalTaskKp').innerText = kp;
+        document.getElementById('modalTaskDiff').innerText = targetDiff;
+        
+        // 🌟 获取那个绿色的“认领任务”按钮
+        const startBtn = document.querySelector('#taskModal .btn-success');
+        
+        // 🌟 动态重写它的点击事件：带着参数跳向战场！
+        startBtn.onclick = () => {
+            // 使用 encodeURIComponent 防止中文考点在 URL 中乱码
+            const encodedKp = encodeURIComponent(kp);
+            // 模式定义为 daily_task，也就是日常计划任务
+            window.location.href = `quiz.html?mode=daily_task&kp=${encodedKp}&diff=${targetDiff}`;
+        };
+
+        document.getElementById('taskModal').classList.add('show');
+    }
+function closeTaskModal() { document.getElementById('taskModal').classList.remove('show'); }
+function startTimer() { timer.elapsed = 0; timer.startTime = Date.now(); timer.intervalId = setInterval(updateTimerDisplay, 10); }
+function updateTimerDisplay() { timer.elapsed = Date.now() - timer.startTime; const ts = Math.floor(timer.elapsed / 1000); document.getElementById('timerDisplay').innerText = `${String(Math.floor(ts / 60)).padStart(2, '0')}:${String(ts % 60).padStart(2, '0')}.${String(timer.elapsed % 1000).padStart(3, '0')}`; }
+function stopTimer() { clearInterval(timer.intervalId); }
+</script>
 </body>
 </html>

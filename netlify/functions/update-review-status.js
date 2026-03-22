@@ -1,4 +1,5 @@
 // 文件路径: netlify/functions/update-review-status.js
+// important, 论文里面的代码流程就是跟着这个写的
 const { createClient } = require('@supabase/supabase-js');
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_KEY;

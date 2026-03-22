@@ -84,6 +84,38 @@ async function startQuizSession() {
         } else if (mode === 'comprehensive') {
             document.querySelector('h1').textContent = '综合模拟考试';
             apiUrl = `/.netlify/functions/get-comprehensive-exam?userId=${userId}`;
+        } 
+        // 🌟🌟🌟 新增分支：拦截 daily_task 日常任务模式 🌟🌟🌟
+        else if (mode === 'daily_task') {
+            const kp = urlParams.get('kp') || "综合";
+            const diff = urlParams.get('diff') || 0.5;
+            
+            document.querySelector('h1').textContent = `今日任务：攻克【${kp}】`;
+            
+            // 注意这里：因为我们后端的 get-daily-quiz 设计的是 POST 请求接收 JSON，
+            // 所以我们需要稍微改变一下这个分支的 fetch 方式。
+            const response = await fetchWithAuth('/.netlify/functions/get-daily-quiz', {
+                method: 'POST',
+                body: JSON.stringify({ kp: kp, diff: diff, count: 1 })
+            });
+            // const data = await response.json();
+            questionSet = Array.isArray(data) ? data : [data];
+            
+            // 日常任务模式解除“只做未做过”的限制，因为错题本身就是做过的
+            console.log("日常任务模式：包含错题重练和AI新题");
+            
+            if (questionSet.length === 0) {
+                questionTextEl.textContent = '今日题库未能成功加载，请刷新重试。';
+                submitBtn.style.display = 'none';
+                return;
+            }
+
+            currentQuestionIndex = 0;
+            displayQuestion();
+            return; // 提前退出，不再走下面的传统 GET 请求逻辑
+        } else if (mode === 'comprehensive') {
+            document.querySelector('h1').textContent = '综合模拟考试';
+            apiUrl = `/.netlify/functions/get-comprehensive-exam?userId=${userId}`;
         } else {
             if (!chapterId) { alert("未指定章节ID"); return; }
             // 🔥 这里把 userId 传给后端，让后端帮忙查 is_done
@@ -484,7 +516,7 @@ getAiAnalysisBtn.addEventListener('click', async () => {
     // 1. 构造初始的苏格拉底 System Prompt
     const systemPrompt = `
 你是一位拥有20年经验的资深初中化学教师，擅长使用“元认知策略”和“苏格拉底提问法”引导学生。
-学生做错了一道题，你的任务不是直接告诉他答案，而是按照以下【严格的教学四部曲】一步步引导他自己发现真理。
+学生做错了一道题，你的任务不是直接告诉他答案，而是按照以下【严格的教学五部曲】一步步引导他自己发现真理。
 
 【题目信息】
 - 题目内容：${q.full_question}
@@ -510,6 +542,7 @@ ${userAnswer}
 - **分支逻辑**：
     - 如果学生答对了考点：给予肯定，进入第三阶段。
     - 如果学生答错了考点：请用类比或提示，引导他回到正确的知识点上。
+    注意，请让学生自己说出考点，不要让他选择考点！
 
 **第三阶段：逻辑构建 (应用)**
 *知识点对了，但用错了。*
@@ -519,6 +552,9 @@ ${userAnswer}
 **第四阶段：最终求解**
 - 在学生思路理顺后，让他自己得出正确答案。
 - 最后给出一句简短的鼓励。
+
+**第五阶段：总结答题经验**
+- 总结该题的答题步骤，按照1. 2. 3. 的顺序总结出来，让学生对这道题有一个宏观的掌控。
 
 【回复要求】
 1. **语气**：亲切、耐心、循循善诱，像面对面聊天。

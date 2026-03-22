@@ -1,6 +1,9 @@
 // 文件路径: netlify/functions/generate-diagnostic.js
+const { createClient } = require('@supabase/supabase-js');
 
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
 const UNIT_MAP = {
   1: "第一单元 走进化学世界", 2: "第二单元 我们周围的空气", 3: "第三单元 物质构成的奥秘",
@@ -9,117 +12,66 @@ const UNIT_MAP = {
   10: "第十单元 酸和碱", 11: "第十一单元 盐 化肥", 12: "第十二单元 化学与生活"
 };
 
-const handler = async (event, context) => {
-  if (event.httpMethod !== "POST") {
-    return { statusCode: 405, body: JSON.stringify({ error: "只允许 POST 请求" }) };
-  }
+exports.handler = async (event, context) => {
+  if (event.httpMethod !== "POST") return { statusCode: 405, body: JSON.stringify({ error: "只允许 POST" }) };
 
-  if (!DEEPSEEK_API_KEY) {
-    return { statusCode: 500, body: JSON.stringify({ error: "服务器端未配置 AI 密钥" }) };
+  // 🌟 1. 核心修复：检查身份令牌 (防盗刷保护) 🌟
+  const authHeader = event.headers.authorization;
+  if (!authHeader) {
+      return { statusCode: 401, body: JSON.stringify({ error: '未提供认证令牌' }) };
   }
+  const token = authHeader.split(' ')[1];
+
+  if (!DEEPSEEK_API_KEY) return { statusCode: 500, body: JSON.stringify({ error: "未配置 API 密钥" }) };
 
   try {
+    // 🌟 2. 验证令牌的合法性
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        global: { headers: { Authorization: `Bearer ${token}` } }
+    });
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) throw new Error("身份验证失败，请重新登录");
+
     const body = JSON.parse(event.body);
-    
-    if (body.action !== "generate_diagnostic") {
-      return { statusCode: 400, body: JSON.stringify({ error: "非法的操作指令" }) };
-    }
+    if (body.action !== "generate_adaptive_question") return { statusCode: 400, body: JSON.stringify({ error: "非法操作" }) };
 
-    const learnedUnits = body.learned_units || [];
-    const questionCount = body.question_count || 5;
+    const learnedUnits = body.units || [];
+    const currentTheta = body.current_theta !== undefined ? body.current_theta : 0.5;
+    const trace = body.trace || [];
 
-    if (learnedUnits.length === 0) {
-      return { statusCode: 400, body: JSON.stringify({ error: "请至少选择一个学习单元" }) };
-    }
-
+    if (learnedUnits.length === 0) return { statusCode: 400, body: JSON.stringify({ error: "缺少范围" }) };
     const unitNames = learnedUnits.map(id => UNIT_MAP[id]).filter(Boolean).join("、");
 
-    const systemPrompt = {
-      role: "system",
-      content: "你是一名资深的中考化学命题专家。你的任务是根据学生已学的单元进度，精准生成一套能力诊断测试题。你必须严格遵循知识边界，绝不能超纲出题。你返回的结果必须是纯净的 JSON 数据，不要包含任何 Markdown 标记（如 ```json）或额外的解释说明。"
-    };
-
-    const userPrompt = {
-      role: "user",
-      content: `当前学生正在进行首次能力诊断。该学生目前只学过以下化学单元：【${unitNames}】。
-请严格限制在这个知识范围内，生成 ${questionCount} 道单项选择题，难度需包含基础、中等和拔高（用于IRT能力测试）。
-
-请务必返回一个标准的 JSON 对象，格式如下：
-{
-  "questions": [
-    {
-      "id": 1,
-      "text": "题目具体内容（如：下列关于氧气说法正确的是？）",
-      "options": ["选项A的内容", "选项B的内容", "选项C的内容", "选项D的内容"],
-      "answer": "A",
-      "difficulty": "基础",
-      "knowledge_point": "氧气的性质"
-    }
-  ]
-}
-注意：仅返回 JSON 字符串本身，不要输出任何其他的文字。`
-    };
-
-    // 🌟 终极绝招：把网址拆散，骗过编辑器的自动超链接格式化！
-    const protocol = "https://";
-    const domain = "api.deepseek.com";
-    const path = "/chat/completions";
-    const apiEndpoint = protocol + domain + path; 
-    
-    try {
-      console.log("正在向 DeepSeek 发起请求...");
-      
-      const response = await fetch(apiEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
-        },
-        body: JSON.stringify({
-          model: "deepseek-chat",
-          messages: [systemPrompt, userPrompt],
-          stream: false 
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`❌ DeepSeek API 拒绝了请求. 状态码: ${response.status}`);
-        throw new Error(`DeepSeek API 错误: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      if (!data.choices || !data.choices[0].message) {
-          throw new Error("AI 返回的数据缺少必要内容字段");
-      }
-
-      let aiContent = data.choices[0].message.content.trim();
-      aiContent = aiContent.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
-
-      let parsedQuestions;
-      try {
-        parsedQuestions = JSON.parse(aiContent);
-      } catch (parseErr) {
-        console.error("❌ JSON解析失败，原始内容为:", aiContent);
-        throw new Error("AI 格式化生成失败，未返回合法的 JSON");
-      }
-
-      return {
-        statusCode: 200,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(parsedQuestions)
-      };
-
-    } catch (apiError) {
-      console.error("API 错误:", apiError.message);
-      return { statusCode: 502, body: JSON.stringify({ error: apiError.message }) };
+    // --- 难度逻辑 ---
+    let targetDifficulty = "中等", difficultyPrompt = "生成一道中等难度题，测试基础掌握情况。", difficultyVal = "0";
+    if (currentTheta < 0.35) {
+        difficultyPrompt = "生成一道基础题。由于学生水平初级，请降低难度，侧重基本概念记忆。"; difficultyVal = "-1";
+    } else if (currentTheta > 0.65) {
+        difficultyPrompt = "生成一道拔高题。请增加难度，侧重综合运用或易错陷阱。"; difficultyVal = "1";
     }
 
-  } catch (globalError) {
-    console.error("全局异常:", globalError);
-    return { statusCode: 500, body: JSON.stringify({ error: "服务器内部异常" }) };
+    let traceContext = "无";
+    if (trace.length > 0) {
+        traceContext = trace.map((t, i) => `第${i+1}题|考点:[${t.kp}]|难度:[${t.difficulty}]|结果:${t.isCorrect ? '对' : '错'}|耗时:${(t.timeSpent/1000).toFixed(1)}s`).join("\n");
+    }
+
+    const systemPrompt = { role: "system", content: "你是一个IRT自适应中考化学名师。根据学生水平估算值和答题轨迹，精准生成【1道】单项选择题。必须返回纯净JSON对象，不要Markdown。" };
+    const userPrompt = { role: "user", content: `【范围】：${unitNames}\n【Theta估算】：${currentTheta.toFixed(2)}\n【轨迹】：${traceContext}\n\n指令：避开刚考过的考点，${difficultyPrompt}\n返回1道题JSON：{"id":时间戳,"text":"题目","options":["A..","B..","C..","D.."],"answer":"A","difficulty_val":"${difficultyVal}","knowledge_point":"细分考点"}` };
+
+    const response = await fetch("https://api.deepseek.com/chat/completions", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${DEEPSEEK_API_KEY}` },
+      body: JSON.stringify({ model: "deepseek-chat", messages: [systemPrompt, userPrompt], stream: false, temperature: 0.7 })
+    });
+
+    if (!response.ok) throw new Error(`DeepSeek 报错: ${response.status}`);
+    const data = await response.json();
+    let aiContent = data.choices[0].message.content.trim().replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+
+    return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: aiContent };
+
+  } catch (error) {
+    console.error("生成诊断题失败:", error.message);
+    return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
   }
 };
-
-module.exports = { handler };
