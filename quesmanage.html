@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>错题管理策略站 | 资深导师引导</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        :root {
+            --primary: #3498db;
+            --success: #2ecc71;
+            --bg: #f4f7f6;
+            --text: #2c3e50;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            color: var(--text);
+        }
+
+        /* 左侧：对话区域 */
+        .chat-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+            position: relative;
+        }
+
+        .chat-header {
+            padding: 20px 30px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            background: #fff;
+        }
+
+        .mentor-info { margin-left: 15px; }
+        .mentor-info h2 { margin: 0; font-size: 1.2rem; }
+        .mentor-info p { margin: 0; font-size: 0.85rem; color: #7f8c8d; }
+
+        #chat-window {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            scroll-behavior: smooth;
+        }
+
+        /* 气泡样式 */
+        .msg { max-width: 85%; line-height: 1.6; padding: 12px 18px; border-radius: 18px; font-size: 1rem; position: relative; }
+        .mentor-msg {
+            align-self: flex-start;
+            background: #f0f2f5;
+            color: #333;
+            border-bottom-left-radius: 4px;
+        }
+        .user-msg {
+            align-self: flex-end;
+            background: var(--primary);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        /* 输入区 */
+        .input-wrap {
+            padding: 25px 30px;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 12px;
+        }
+
+        input {
+            flex: 1;
+            padding: 12px 18px;
+            border: 2px solid #e1e8ed;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        input:focus { border-color: var(--primary); outline: none; }
+
+        button#send-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0 25px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        /* 右侧：计划看板 */
+        .plan-section {
+            width: 380px;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            background: #fdfdfd;
+        }
+
+        .status-card {
+            background: white;
+            border: 1px solid #e1e8ed;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        }
+
+        .step-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            color: #bdc3c7;
+            transition: all 0.4s;
+        }
+        .step-item.active { color: var(--text); font-weight: 600; }
+        .step-item.done { color: var(--success); }
+        .step-item i { font-size: 1.2rem; }
+
+        #launch-btn {
+            margin-top: auto;
+            background: var(--success);
+            color: white;
+            border: none;
+            padding: 18px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            display: none; /* 初始隐藏 */
+            text-align: center;
+            text-decoration: none;
+            box-shadow: 0 6px 20px rgba(46, 204, 113, 0.3);
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+    </style>
+</head>
+<body>
+
+    <div class="chat-section">
+        <div class="chat-header">
+            <div style="font-size: 2rem;">🤖</div>
+            <div class="mentor-info">
+                <h2>资深错题导师</h2>
+                <p>正在为您制定专属策略</p>
+            </div>
+        </div>
+
+        <div id="chat-window">
+            </div>
+
+        <div class="input-wrap">
+            <input type="text" id="user-input" placeholder="按回车发送你的想法..." autofocus>
+            <button id="send-btn">发送</button>
+        </div>
+    </div>
+
+    <div class="plan-section">
+        <h3><i class="fas fa-tasks"></i> 策略达成进度</h3>
+        <div class="status-card">
+            <div class="step-item" id="step-1"><i class="fas fa-dot-circle"></i> 1. 明确管理目标</div>
+            <div class="step-item" id="step-2"><i class="fas fa-dot-circle"></i> 2. 识别错因与资源</div>
+            <div class="step-item" id="step-3"><i class="fas fa-dot-circle"></i> 3. 拆解执行路径</div>
+            <div class="step-item" id="step-4"><i class="fas fa-dot-circle"></i> 4. 方案落地标准</div>
+        </div>
+
+        <div style="margin-top: 30px; font-size: 0.9rem; color: #7f8c8d; line-height: 1.5;">
+            <i class="fas fa-info-circle"></i> 温馨提示：<br>
+            完成所有阶段的对话后，系统将解锁“我的错题本”入口。
+        </div>
+
+        <a href="my-errors.html" id="launch-btn">
+            生成完毕 · 开启复习 <i class="fas fa-bolt"></i>
+        </a>
+    </div>
+
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    
+    <script src="js/quesmanage.js"></script>
+</body>
+</html>

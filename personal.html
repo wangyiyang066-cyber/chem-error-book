@@ -134,7 +134,24 @@
             <button class="btn btn-success" id="submitBtn" onclick="submitSingleAnswer()" disabled>提交回答 (进入下一轮博弈)</button>
         </div>
     </div>
+<div id="planChatView" class="card">
+        <h2 style="color: var(--primary-color);"><i class="fas fa-user-graduate"></i> 专属学习规划导师</h2>
+        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">诊断已完成！在开启本周题海前，我们先聊聊目标，制定一份你的专属计划。</p>
+        
+        <div id="plan-chat-log" style="height: 350px; overflow-y: auto; background: #fafbfc; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 15px;">
+            </div>
 
+        <div style="display: flex; gap: 10px;">
+            <input type="text" id="plan-user-input" placeholder="输入你的想法..." style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 15px;">
+            <button id="send-plan-msg-btn" class="btn btn-primary">发送</button>
+        </div>
+
+        <div id="finalize-plan-container" style="display: none; margin-top: 25px; text-align: center;">
+            <button id="generate-final-plan-btn" class="btn btn-success" style="width: 100%; padding: 15px; font-size: 16px; box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);">
+                ✨ 计划已定，一键提取为智能看板 ✨
+            </button>
+        </div>
+    </div>
     <div id="dashboardView" class="card">
         <div class="dashboard-header">
             <div>
@@ -336,43 +353,151 @@ async function loadNextAdaptiveQuestion(isFirst = false) {
 // ==========================================
 // 🌟 生成计划
 // ==========================================
-async function finishQuiz() {
-    switchView('dashboardView');
-    document.getElementById('finalThetaDisplay').innerText = `🎯 Theta: ${quizState.currentTheta.toFixed(2)}`;
-    const planContainer = document.getElementById('planContainer');
-    planContainer.innerHTML = `<div id="planLoading" style="text-align:center; padding: 60px;"><div class="spinner"></div><h3 id="planStatusText">第 1 步：准备生成最终计划...</h3></div>`;
+// ==========================================
+// 🌟 计划共创系统 (前端逻辑)
+// ==========================================
+let planChatHistory = [];
+const studentInfo = { grade: "初三", demand: "提升化学大题得分率", plan_issue: "以前总是计划得太满，坚持不下来" };
 
-    const updatePlanStatus = (msg) => { const el = document.getElementById('planStatusText'); if(el) el.innerText = msg; };
+const mentorSystemPrompt = `你是一位拥有18年一线教学与学业规划经验的资深学习规划导师，深耕全学段个性化学习指导，擅长使用**元认知策略**、**目标拆解法**和**苏格拉底提问法**，引导学生自主制定科学、可落地的学习计划。 学生需要制定一份学习计划，你的任务不是直接给他现成的计划模板/完整方案，而是按照以下【严格的规划引导五部曲】一步步引导他自己产出适配自身的专属学习计划。 
+【学生基础信息】 
+- 学生学段：${studentInfo.grade} 
+- 核心学习诉求：${studentInfo.demand} 
+- 学生已有的初步想法/过往计划问题：${studentInfo.plan_issue} 
+【你的引导指令 - 请严格按逻辑执行】 你需要模拟一位在身边的专属规划导师，**严禁一次性输出所有阶段内容**，必须根据学生的当前回答，匹配对应阶段，单次只聚焦当前阶段的引导，循序渐进推进： 
+**第一阶段：学习目标** 
+判断学生是否目标模糊、不可衡量、脱离实际-
+先不评判初始想法，温和询问：“我们先从制定计划的核心起点开始，你做这份学习计划，最核心的学习目标是什么？”
+“可以具体说说这个目标需要多长时间、最终要达成的结果吗？
+“你觉得我们用什么标准能明确判断这个目标最终有没有达成呢？” 
+第二阶段：学情与资源盘点（元认知唤醒）
+如果目标已清晰可衡量，引导学生全面认知自身现状与可用资源* - 
+询问：“明确了核心目标后，你觉得可以利用哪些资源去实现呢？”
+“为了实现目标，你目前的哪些习惯可以保持？哪些情况需要改进？”
+ “除此之外，你认为达成目标还需要注意哪些问题？” 
+- **分支逻辑**： - 如果学生完整盘点了学情、时间与可用资源：给予肯定，进入第三阶段。 - 如果学生盘点有遗漏/认知偏差：用提问引导他自主补充，不直接替他完善，比如“除了攻克薄弱板块，你有没有考虑过其他有助于实现学习目标的做法呀？”
+ **第三阶段：目标拆解与路径搭建
+现状与目标清晰，引导学生自主拆解目标、搭建执行路径，使目标落地。 - 
+询问：“现在我们有了清晰的目标和明确的现状，你觉得这个大目标，可以拆解成哪些阶段性的小目标？每个小目标对应的周期、要完成的核心任务是什么？” - 
+补充引导：“这些阶段性任务，对应到每周/每天，需要完成哪些具体的学习动作呢？”
+ - **分支逻辑**： - 如果学生拆解合理、贴合自身时间：给予肯定，进入第四阶段。 - 如果学生拆解过满/过松/逻辑不通：用提问引导他自主发现问题，比如“你觉得这个阶段的任务量，结合你每天的计划时间，能不能保证完成呢？有没有可以调整的地方？” 
+**第四阶段：计划细化与最终成型*
+ 触发前提：学生已完成合理的目标拆解、执行路径搭建 - 
+核心规则：**严禁直接提供时段模板、任务完成标准、现成计划表**，全程通过提问引导学生自主匹配执行时段、明确完成标准，自主梳理出完整可直接执行的学习计划 - 
+引导执行逻辑： 1. 初始引导（贴合指定开头示例）：“那我们现在把拆解好的任务落到实处，你觉得这些具体的学习任务，分别对应到你每周/每天的哪些时段来完成最合适呢？” 2. 跟进引导（学生完成时段匹配后）：“非常好，那对应每个时段的学习任务，你觉得要多长时间复习一次，才能明确知道自己有没有完成到位呢？”（这里我觉得可以直接用艾宾浩斯曲线去制定，或者询问学生自己的意见也可以）
+ 3. 收尾引导（学生明确完成标准后）：“太棒了，现在请你把这些时段安排和完成标准整合起来，自主梳理出一份你可以直接照着执行的完整学习计划吧。”（要是不成型也没关系，AI已经可以通过之前的问答制定出成型的方案了，但是这里学生如果能自己写出来就更好了）
+ 4. 固定要求：学生计划成型后，必须输出一句简短真诚的鼓励，示例：“这份完全贴合你自身情况的学习计划特别扎实，稳步执行一定能一步步靠近你的目标，加油！” - 
+分支逻辑： - 若学生时段匹配/标准设定合理、贴合自身实际：给予正向肯定，推进到下一环节 - 若学生安排过满/标准模糊/脱离实际：用提问引导自主调整，比如“你觉得这个时段安排的任务量，结合你的日常状态，能稳定完成吗？有没有可以优化的地方？”，严禁直接替学生修改。
+【回复要求】 1. **语气**：亲切、耐心、循循善诱，像面对面和学生聊天，不生硬不说教。 
+**核心禁令**：严禁直接给出现成的学习计划、固定模板、完整方案！严禁替学生做目标拆解、任务安排！所有内容必须通过提问引导学生自主思考、自主产出。 
+3. **格式**：分段清晰，核心词汇可以加粗。 
+4. **节奏控制**：单次只聚焦当前阶段的引导，不提前透露后续内容，严格跟着学生的回答推进。 
+5. **字数**：单次引导内容控制在200字以内，多提问，少说教。`;
+
+// 原本是生成计划，现在改为启动对话！
+async function finishQuiz() {
+    switchView('planChatView');
+    document.getElementById('plan-chat-log').innerHTML = ''; // 清空屏幕
+    
+    planChatHistory = [
+        { role: "system", content: mentorSystemPrompt },
+        { role: "user", content: "老师好，我想制定一份化学学习计划，请您引导我。" } // 隐形触发句
+    ];
+    await fetchMentorReply();
+}
+
+function addPlanChatBubble(role, text, id = '') {
+    const log = document.getElementById('plan-chat-log');
+    const div = document.createElement('div');
+    if (id) div.id = id;
+    
+    // 粗略处理加粗的 markdown
+    const formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+    if (role === 'user') {
+        div.innerHTML = `<div style="display: flex; justify-content: flex-end; align-items: flex-start;"><div style="background: var(--primary-light); color: var(--primary-color); padding: 12px 18px; border-radius: 15px 15px 0 15px; max-width: 80%; line-height: 1.5;">${formattedText}</div><div style="font-size: 24px; margin-left: 10px;">🧑</div></div>`;
+    } else {
+        div.innerHTML = `<div style="display: flex; justify-content: flex-start; align-items: flex-start;"><div style="font-size: 24px; margin-right: 10px;">🤖</div><div style="background: white; border: 1px solid var(--border-color); padding: 12px 18px; border-radius: 15px 15px 15px 0; max-width: 80%; line-height: 1.5;">${formattedText}</div></div>`;
+    }
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+}
+
+async function fetchMentorReply() {
+    const loadId = 'plan-loading-' + Date.now();
+    addPlanChatBubble("ai", "<i class='fas fa-spinner fa-spin'></i> 导师正在分析...", loadId);
+
+    const token = await getValidToken("请求规划导师");
+    if (!token) return;
 
     try {
-        const token = await getValidToken("生成计划");
-        if (!token) return;
+        const response = await fetch('/.netlify/functions/plan-mentor-chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ messages: planChatHistory })
+        });
+        
+        if (!response.ok) throw new Error("API 异常");
+        const data = await response.json();
+        const replyText = data.reply;
 
-        updatePlanStatus("第 2 步：将答题轨迹发送给 AI 规划师...");
+        planChatHistory.push({ role: "assistant", content: replyText });
+        
+        // 删掉 loading，换上真话
+        document.getElementById(loadId).remove();
+        addPlanChatBubble("ai", replyText);
+
+        // 🌟 智能判定：导师说了收尾暗号，展示生成看板按钮！
+        if (replyText.includes("稳步执行") || replyText.includes("加油")) {
+            document.getElementById('finalize-plan-container').style.display = 'block';
+        }
+
+    } catch (err) {
+        document.getElementById(loadId).remove();
+        addPlanChatBubble("ai", "网络信号不好，请重试一遍。");
+    }
+}
+
+// 绑定发送按钮
+document.getElementById('send-plan-msg-btn').addEventListener('click', async () => {
+    const input = document.getElementById('plan-user-input');
+    const text = input.value.trim();
+    if (!text) return;
+    
+    addPlanChatBubble("user", text);
+    input.value = '';
+    planChatHistory.push({ role: "user", content: text });
+    
+    await fetchMentorReply();
+});
+document.getElementById('plan-user-input').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') document.getElementById('send-plan-msg-btn').click();
+});
+
+// 🌟 结晶：把聊天记录炼成智能看板
+document.getElementById('generate-final-plan-btn').addEventListener('click', async () => {
+    switchView('dashboardView');
+    document.getElementById('finalThetaDisplay').innerText = `🎯 Theta: ${quizState.currentTheta.toFixed(2)}`;
+    document.getElementById('planContainer').innerHTML = `<div id="planLoading" style="text-align:center; padding: 60px;"><div class="spinner"></div><h3 id="planStatusText">正在提取共创数据，生成智能路线图...</h3></div>`;
+
+    const token = await getValidToken("生成最终计划");
+    if (!token) return;
+
+    try {
         const response = await fetch('/.netlify/functions/generate-plan', { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, 
-            body: JSON.stringify({ theta: quizState.currentTheta, trace: quizState.answersTrace }) 
+            // 🌟 关键：把 chatHistory 发过去
+            body: JSON.stringify({ theta: quizState.currentTheta, trace: quizState.answersTrace, chat_history: planChatHistory }) 
         });
         
-        updatePlanStatus("第 3 步：等待 AI 排布路线并写入数据库...");
-        if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`生成失败 (状态码 ${response.status}): ${errText}`);
-        }
-        
-        updatePlanStatus("第 4 步：成功！正在渲染路线图...");
+        if (!response.ok) throw new Error("提取计划失败");
         renderWeeklyPlan(await response.json());
         
     } catch (error) { 
-        planContainer.innerHTML = `
-            <div style="background: #fff0f0; border: 2px solid red; padding: 20px; border-radius: 10px; text-align: left;">
-                <h3 style="color: red; margin-top:0;">❌ 计划生成环节崩溃！</h3>
-                <p style="font-family: monospace;">${error.message}</p>
-                <button class="btn btn-outline" onclick="retakeDiagnostic()">退回重试</button>
-            </div>`; 
+        document.getElementById('planContainer').innerHTML = `<p style="color:red; text-align:center;">生成路线图失败，请重试。</p>`; 
     }
-}
+});
 
 
 

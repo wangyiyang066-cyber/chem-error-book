@@ -92,16 +92,15 @@ async function startQuizSession() {
             
             document.querySelector('h1').textContent = `今日任务：攻克【${kp}】`;
             
-            // 注意这里：因为我们后端的 get-daily-quiz 设计的是 POST 请求接收 JSON，
-            // 所以我们需要稍微改变一下这个分支的 fetch 方式。
-            const response = await fetchWithAuth('/.netlify/functions/get-daily-quiz', {
+            // 🌟 1. 必须先去后端拿数据（这就叫“把饭做好”）
+            const data = await fetchWithAuth('/.netlify/functions/get-daily-quiz', {
                 method: 'POST',
-                body: JSON.stringify({ kp: kp, diff: diff, count: 1 })
+                body: JSON.stringify({ kp: kp, diff: diff, count: 1 }) // 先用1道题测
             });
-            // const data = await response.json();
+            
+            // 🌟 2. 拿到数据后，才能使用 data 赋值（这就叫“开始吃饭”）
             questionSet = Array.isArray(data) ? data : [data];
             
-            // 日常任务模式解除“只做未做过”的限制，因为错题本身就是做过的
             console.log("日常任务模式：包含错题重练和AI新题");
             
             if (questionSet.length === 0) {
@@ -112,7 +111,8 @@ async function startQuizSession() {
 
             currentQuestionIndex = 0;
             displayQuestion();
-            return; // 提前退出，不再走下面的传统 GET 请求逻辑
+            return; // 提前退出
+            
         } else if (mode === 'comprehensive') {
             document.querySelector('h1').textContent = '综合模拟考试';
             apiUrl = `/.netlify/functions/get-comprehensive-exam?userId=${userId}`;
